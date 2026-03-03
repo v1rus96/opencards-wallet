@@ -259,7 +259,7 @@ function CardVisual({
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <span style={{ fontFamily: f1, fontSize: 12, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: labelTs, opacity: .8 }}>VIRTUAL</span>
             <button
-              onClick={(e) => { e.stopPropagation(); setDesignIdx(i => (i + 1) % DESIGNS.length); }}
+              onPointerUp={(e) => { e.stopPropagation(); setDesignIdx(i => (i + 1) % DESIGNS.length); }}
               style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", fontFamily: f1, fontSize: 16, fontWeight: 800, letterSpacing: 3, color: tc, textShadow: ts, lineHeight: 1 }}
             >
               PLATA
@@ -273,7 +273,7 @@ function CardVisual({
             <span style={{ fontFamily: f2, fontSize: 30, fontWeight: 700, color: tc, textShadow: ts, letterSpacing: -.5 }}>{"$" + balance.toFixed(2)}</span>
             {onDeposit && (
               <button
-                onClick={(e) => { e.stopPropagation(); onDeposit(); }}
+                onPointerUp={(e) => { e.stopPropagation(); onDeposit(); }}
                 style={{ width: 30, height: 30, borderRadius: "50%", background: dark ? "rgba(255,255,255,.2)" : "#1A1D21", color: "#fff", border: "none", cursor: "pointer", display: "grid", placeItems: "center", padding: 0 }}
               >
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="7" y1="1" x2="7" y2="13" stroke="#fff" strokeWidth="2" strokeLinecap="round" /><line x1="1" y1="7" x2="13" y2="7" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></svg>
@@ -286,7 +286,7 @@ function CardVisual({
           <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: f2, fontSize: 18, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: ts, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fmtNum(cardNumber)}</span>
             <button
-              onClick={(e) => { e.stopPropagation(); handleVis(); }}
+              onPointerUp={(e) => { e.stopPropagation(); handleVis(); }}
               style={{ width: 34, height: 34, borderRadius: "50%", background: bb, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
             >
               {revealing ? (
@@ -325,6 +325,9 @@ const PEEK = 52;
 /* ── CardList export — Apple Wallet stack ─────────────────────────── */
 export function CardList({ cards, loading, onDeposit }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
+
+  // Track pointer down position to avoid treating scrolls as taps
+  const pointerDownY = useRef<number | null>(null);
 
   /* Memoize the array so TransactionHistory doesn't get a new reference on every render */
   const selectedCardsArr = useMemo(() => {
@@ -441,7 +444,14 @@ export function CardList({ cards, loading, onDeposit }: Props) {
           return (
             <div
               key={card.id}
-              onClick={() => handleTap(idx)}
+              onPointerDown={(e) => { pointerDownY.current = e.clientY; }}
+              onPointerUp={(e) => {
+                // If user dragged more than 10px vertically, treat as scroll, not tap
+                if (pointerDownY.current !== null && Math.abs(e.clientY - pointerDownY.current) < 10) {
+                  handleTap(idx);
+                }
+                pointerDownY.current = null;
+              }}
               style={{
                 position: "absolute",
                 top: 0,
