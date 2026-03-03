@@ -325,6 +325,11 @@ const PEEK = 52;
 /* ── CardList export — Apple Wallet stack ─────────────────────────── */
 export function CardList({ cards, loading, onDeposit }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
+  /* Deferred flag — mounts TransactionHistory AFTER the card animation
+     has had at least two frames to paint, so the heavy DOM work from
+     mounting the transaction list doesn't block the compositor. */
+  const [txReady, setTxReady] = useState(false);
+  const txRaf = useRef<number>(0);
 
   // Track pointer down position to avoid treating scrolls as taps
   const pointerDownY = useRef<number | null>(null);
@@ -365,10 +370,21 @@ export function CardList({ cards, loading, onDeposit }: Props) {
     : cardH + (cards.length - 1 - selected) * PEEK;
 
   const handleTap = (idx: number) => {
+    cancelAnimationFrame(txRaf.current);
     if (selected === idx) {
+      setTxReady(false);
       setSelected(null);  /* tap selected card → collapse */
     } else {
       setSelected(idx);   /* tap any card → select it */
+      /* Double-rAF: first rAF fires after the browser
+         composites the card-transform frame, second rAF
+         fires after that frame is actually painted.
+         Only THEN do we mount TransactionHistory. */
+      txRaf.current = requestAnimationFrame(() => {
+        txRaf.current = requestAnimationFrame(() => {
+          setTxReady(true);
+        });
+      });
     }
   };
 
@@ -384,7 +400,9 @@ export function CardList({ cards, loading, onDeposit }: Props) {
           zIndex: 2, /* card stack sits visually above transactions */
           /* Height matches cards + peek offset + padding below */
           paddingBottom: `calc(${(227 / 360) * 100}% + ${(isCollapsed ? (cards.length - 1) : 0) * PEEK}px + 24px)`,
-          transition: "padding-bottom 0.45s cubic-bezier(0.25, 1, 0.5, 1)",
+          /* No transition on paddingBottom — it triggers layout reflow every
+             frame, which blocks the GPU-composited card transforms on mobile.
+             The card animations alone provide the visual continuity. */
         }}
       >
         {cards.map((card, idx) => {
@@ -515,7 +533,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
             transition: "opacity 0.4s ease 0.1s, transform 0.4s cubic-bezier(0.25, 1, 0.5, 1) 0.1s",
             willChange: "opacity, transform"
           }}>
-            {selected !== null && (
+            {selected !== null && txReady && (
               <TransactionHistory cards={selectedCardsArr} hideFilter />
             )}
           </div>
