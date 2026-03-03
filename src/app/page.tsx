@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect } from 'react';
-import { ArrowUpRight, CreditCard, ClipboardList, Settings, RefreshCw, Wallet, Plus, KeyRound } from 'lucide-react';
+import { ArrowUpRight, CreditCard, Settings, Wallet, Plus, KeyRound } from 'lucide-react';
 import { NetworkSolana, NetworkEthereum } from '@web3icons/react';
 import { useSafeArea, useTelegram } from '@/hooks/useTelegram';
 import { useWalletData } from '@/hooks/useWalletData';
@@ -18,6 +18,7 @@ import { SafeAreaFade } from '@/components/SafeAreaFade';
 import { OrderCard } from '@/components/OrderCard';
 import { DepositCard } from '@/components/DepositCard';
 import { Setup } from '@/components/Setup';
+import { PullToRefresh } from '@/components/PullToRefresh';
 import { CardOrder } from '@/types';
 
 const TransactionHistory = dynamic(() => import('@/components/TransactionHistory').then(m => m.TransactionHistory), { ssr: false });
@@ -86,6 +87,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-zinc-950">
       <SafeAreaFade height={safeArea.top} />
+
+      <PullToRefresh onRefresh={refresh}>
       <div style={{ height: safeArea.top }} />
 
       <div className="mx-auto max-w-lg px-4 pb-24">
@@ -102,20 +105,11 @@ export default function Home() {
                 <Wallet size={20} className="text-teal-400" />
                 Agent Wallet
               </h1>
-              <div className="flex items-center gap-2">
-                {error && (
-                  <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-400">
-                    OFFLINE
-                  </span>
-                )}
-                <button
-                  onClick={() => { refresh(); haptic('light'); }}
-                  className="flex items-center gap-1.5 rounded-full bg-teal-500/10 px-2.5 py-1 text-[11px] font-semibold text-teal-400 transition-all active:scale-95"
-                >
-                  <RefreshCw size={10} className={loading ? 'animate-spin' : ''} />
-                  LIVE
-                </button>
-              </div>
+              {error && (
+                <span className="rounded-full bg-red-500/10 px-2.5 py-1 text-[11px] font-semibold text-red-400">
+                  OFFLINE
+                </span>
+              )}
             </div>
 
             {/* Order Card Flow */}
@@ -239,6 +233,7 @@ export default function Home() {
           </>
         )}
       </div>
+      </PullToRefresh>
 
       {view !== 'setup' && (
         <TabBar active={activeTab} onSelect={handleTab} bottomInset={safeArea.bottom} />
