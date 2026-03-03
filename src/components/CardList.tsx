@@ -457,7 +457,8 @@ export function CardList({ cards, loading, onDeposit }: Props) {
                 top: 0,
                 left: 0,
                 width: "100%",
-                transform: `translateY(${y}px) scale(${scale})`,
+                /* force hardware acceleration via translate3d/scale3d */
+                transform: `translate3d(0, ${y}px, 0) scale3d(${scale}, ${scale}, 1)`,
                 transformOrigin: "top center",
                 zIndex: z,
                 opacity,
@@ -523,7 +524,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
           <div style={{
             paddingTop: 24,
             opacity: selected !== null ? 1 : 0,
-            transform: `translateY(${selected !== null ? '0px' : '20px'})`,
+            transform: `translate3d(0, ${selected !== null ? '0px' : '20px'}, 0)`,
             pointerEvents: selected !== null ? 'auto' : 'none',
             transition: "opacity 0.4s ease 0.1s, transform 0.4s cubic-bezier(0.25, 1, 0.5, 1) 0.1s",
             willChange: "opacity, transform"
