@@ -384,7 +384,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
           zIndex: 2, /* card stack sits visually above transactions */
           /* Height matches cards + peek offset + padding below */
           paddingBottom: `calc(${(227 / 360) * 100}% + ${(isCollapsed ? (cards.length - 1) : 0) * PEEK}px + 24px)`,
-          transition: "padding-bottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          transition: "padding-bottom 0.45s cubic-bezier(0.25, 1, 0.5, 1)",
         }}
       >
         {cards.map((card, idx) => {
@@ -423,23 +423,9 @@ export function CardList({ cards, loading, onDeposit }: Props) {
           const showPeekInfo = !isFrontCard && !isSelectedCard && opacity > 0;
           const maskedNum = `•••• •••• •••• ${card.last4 || '••••'}`;
 
-          /* Staggered delay — creates cascading waterfall effect */
-          let delay: number;
-          let transformDuration = "0.4s";
-          let transformEasing = "cubic-bezier(0.25, 1, 0.5, 1)";
-          let opacityDuration = "0.15s";
-
-          if (isCollapsed) {
-            delay = Math.abs(idx - (selected ?? idx)) * 0.04;  /* fan back */
-          } else if (idx > selected!) {
-            /* bottom cards slide down smoothly together, no delays */
-            delay = 0;
-            transformDuration = "0.4s";
-            transformEasing = "cubic-bezier(0.25, 1, 0.5, 1)"; /* smooth glide */
-            opacityDuration = "0.2s";
-          } else {
-            delay = 0;
-          }
+          /* No per-card delay — use a single fixed transition string
+             so mobile WebViews don't skip the animation when the
+             transition shorthand itself changes between renders. */
 
           return (
             <div
@@ -462,7 +448,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
                 transformOrigin: "top center",
                 zIndex: z,
                 opacity,
-                transition: `transform ${transformDuration} ${transformEasing} ${delay}s, opacity ${opacityDuration} ease ${delay}s`,
+                transition: "transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.2s ease",
                 willChange: "transform, opacity",
                 cursor: "pointer",
               }}
