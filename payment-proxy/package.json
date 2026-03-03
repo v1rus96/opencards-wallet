@@ -1,0 +1,9 @@
+{
+  "name": "payment-proxy",
+  "type": "module",
+  "dependencies": {
+    "@x402/fetch": "*",
+    "@x402/svm": "*",
+    "@solana/kit": "*"
+  }
+}
