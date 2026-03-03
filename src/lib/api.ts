@@ -25,6 +25,11 @@ async function apiGet(path: string) {
   return r.json();
 }
 
+async function apiPost(path: string) {
+  const r = await fetch(getApiBase() + path, { method: 'POST', headers: getApiHeaders() });
+  return r.json();
+}
+
 /**
  * Fetch the user's wallet addresses from OpenCards.
  * Caches in memory for the session.
@@ -78,6 +83,14 @@ export async function getCardSensitive(orderId: string) {
 export async function getCardTransactions(orderId: string) {
   const data = await apiGet(`/cards/orders/${orderId}/transactions`);
   return data.transactions || [];
+}
+
+export async function freezeCard(orderId: string) {
+  return apiPost(`/cards/orders/${orderId}/freeze`);
+}
+
+export async function unfreezeCard(orderId: string) {
+  return apiPost(`/cards/orders/${orderId}/unfreeze`);
 }
 
 export async function getProducts() {

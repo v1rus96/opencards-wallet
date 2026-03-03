@@ -7,7 +7,7 @@ import { NetworkSolana, NetworkEthereum } from '@web3icons/react';
 import { useSafeArea, useTelegram } from '@/hooks/useTelegram';
 import { useWalletData } from '@/hooks/useWalletData';
 import { getConfig, clearConfig } from '@/lib/store';
-import { clearAddressCache } from '@/lib/api';
+import { clearAddressCache, freezeCard, unfreezeCard } from '@/lib/api';
 import { BalanceHero } from '@/components/BalanceHero';
 import { ChainGrid } from '@/components/ChainGrid';
 import { CardList } from '@/components/CardList';
@@ -58,6 +58,16 @@ export default function Home() {
     haptic('medium');
   };
 
+  const handleFreeze = async (card: CardOrder & { liveBalance: number }, freeze: boolean) => {
+    if (freeze) {
+      await freezeCard(card.id);
+    } else {
+      await unfreezeCard(card.id);
+    }
+    haptic('medium');
+    refresh();
+  };
+
   const handleOrderSuccess = () => {
     refresh();
     haptic('success');
@@ -88,8 +98,9 @@ export default function Home() {
     <div className="min-h-screen bg-zinc-950">
       <SafeAreaFade height={safeArea.top} />
 
-      <PullToRefresh onRefresh={refresh}>
       <div style={{ height: safeArea.top }} />
+
+      <PullToRefresh onRefresh={refresh}>
 
       <div className="mx-auto max-w-lg px-4 pb-24">
         {/* Setup Flow */}
@@ -164,7 +175,7 @@ export default function Home() {
                         <Plus size={14} /> New Card
                       </button>
                     </div>
-                    <CardList cards={cards} loading={loading} onDeposit={handleDeposit} />
+                    <CardList cards={cards} loading={loading} onDeposit={handleDeposit} onFreeze={handleFreeze} />
                   </div>
                 )}
 

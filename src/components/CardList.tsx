@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { Loader2, CreditCard } from 'lucide-react';
+import { Loader2, CreditCard, Snowflake } from 'lucide-react';
 import { CardOrder, CardSensitive } from '@/types';
 import { getCardSensitive } from '@/lib/api';
 
@@ -169,12 +169,24 @@ function fmtNum(n: string) { return n.replace(/(.{4})/g, "$1 ").trim(); }
 function CardVisual({
   card,
   onDeposit,
+  onFreeze,
   isPeeking = false,
 }: {
   card: CardOrder & { liveBalance: number };
   onDeposit?: () => void;
+  onFreeze?: (freeze: boolean) => Promise<void>;
   isPeeking?: boolean;
 }) {
+  const isFrozen = card.status === 'frozen';
+  const [freezing, setFreezing] = useState(false);
+
+  const handleFreeze = useCallback(async () => {
+    if (!onFreeze || freezing) return;
+    setFreezing(true);
+    try { await onFreeze(!isFrozen); } catch (err) { console.error('Freeze toggle failed:', err); }
+    finally { setFreezing(false); }
+  }, [onFreeze, freezing, isFrozen]);
+
   /* reveal / sensitive state */
   const [isRevealed, setIsRevealed] = useState(false);
   const [sensitive, setSensitive] = useState<CardSensitive | null>(null);
@@ -218,7 +230,6 @@ function CardVisual({
   const labelTs = dark
     ? "0px 1px 0px rgba(255,255,255,.3), 0px -1px 0px rgba(0,0,0,.7)"
     : "0px 1px 0px rgba(255,255,255,.8), 0px -1px 0px rgba(0,0,0,.15)";
-  const bb = dark ? "rgba(255,255,255,.15)" : "rgba(0,0,0,.05)";
   const f1 = "'Inter', system-ui, sans-serif";
   const f2 = "'Source Code Pro', 'Courier New', monospace";
   const mcF = dark
@@ -239,7 +250,7 @@ function CardVisual({
   return (
     <div style={{ aspectRatio: "360/227", position: "relative", borderRadius: 12, overflow: "hidden", background: "#2A292D", boxShadow: "0 2px 8px rgba(0,0,0,.18), 0 8px 24px rgba(0,0,0,.22), 0 16px 48px rgba(0,0,0,.16)", userSelect: "none" }}>
       {/* Background */}
-      <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transition: "filter .5s" }}>
+      <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%", filter: isFrozen ? "saturate(0) brightness(.7)" : "none", transition: "filter .5s" }}>
         {isDyn
           ? <DynamicMesh />
           : isIri
@@ -248,12 +259,33 @@ function CardVisual({
               ? <img src={d.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               : <div style={{ position: "absolute", inset: "-20%", width: "140%", height: "140%", background: d.bg, transform: "rotate(" + (ph * 15) + "deg)", transition: "transform .3s linear" }} />}
       </div>
+      {/* Frozen overlay — ice texture + badge (matches plata-card-v3) */}
+      {isFrozen && (
+        <>
+          <div style={{ position: "absolute", inset: 0, borderRadius: 12, overflow: "hidden", pointerEvents: "none" }}>
+            <img src="/abstract-white-frost-patterns-on-black-background-png.png" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.35, mixBlendMode: "screen" }} />
+          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>
+            <button
+              onPointerUp={(e) => { e.stopPropagation(); if (onFreeze) handleFreeze(); }}
+              style={{ background: "rgba(0,0,0,0.8)", borderRadius: 4, padding: "6px 12px", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+            >
+              {freezing
+                ? <Loader2 size={14} color="#fff" className="animate-spin" />
+                : <Snowflake size={14} color="#fff" strokeWidth={2.5} />}
+              <span style={{ fontFamily: f1, color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: 1 }}>
+                {freezing ? "UNFREEZING..." : "UNFREEZE"}
+              </span>
+            </button>
+          </div>
+        </>
+      )}
       {/* Frosted border */}
       <div style={{ position: "absolute", inset: 0, borderRadius: 12, pointerEvents: "none", borderTop: "1px solid rgba(255,255,255,.45)", borderLeft: "1px solid rgba(255,255,255,.15)", borderRight: "1px solid rgba(255,255,255,.1)", borderBottom: "1px solid rgba(255,255,255,.05)" }} />
       {/* Holographic shimmer */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,255,255,.12) 48%, rgba(255,255,255,.18) 50%, rgba(255,255,255,.12) 52%, transparent 65%)", backgroundSize: "300% 100%", backgroundPosition: (ph * 300) + "% 0" }} />
       {/* Content */}
-      <div style={{ position: "absolute", inset: 0, padding: "20px 24px", display: "flex", flexDirection: "column" }}>
+      <div style={{ position: "absolute", inset: 0, padding: "20px 24px", display: "flex", flexDirection: "column", filter: isFrozen ? "blur(6px)" : "none", transition: "filter .5s" }}>
         {/* Header: VIRTUAL / PLATA — hidden when peeking in stack */}
         {!isPeeking && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -281,13 +313,21 @@ function CardVisual({
             )}
           </div>
         )}
-        {/* Card number + eye toggle */}
+        {/* Card number + eye toggle + freeze */}
         {showDetails && cardNumber && (
           <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontFamily: f2, fontSize: 18, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: ts, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fmtNum(cardNumber)}</span>
+            <span
+              onPointerUp={(e) => {
+                if (!isRevealed || !sensitive) return;
+                e.stopPropagation();
+                navigator.clipboard.writeText(sensitive.card_number).catch(() => {});
+                try { (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: { notificationOccurred: (t: string) => void } } } }).Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch { /* */ }
+              }}
+              style={{ fontFamily: f2, fontSize: 18, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: ts, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: isRevealed ? "pointer" : "default" }}
+            >{fmtNum(cardNumber)}</span>
             <button
               onPointerUp={(e) => { e.stopPropagation(); handleVis(); }}
-              style={{ width: 34, height: 34, borderRadius: "50%", background: bb, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+              style={{ width: 34, height: 34, borderRadius: "50%", background: dark ? "rgba(255,255,255,.15)" : "rgba(0,0,0,.05)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
             >
               {revealing ? (
                 <Loader2 size={16} color={tc} className="animate-spin" />
@@ -295,6 +335,16 @@ function CardVisual({
                 ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={tc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity=".7"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
                 : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={tc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity=".7"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>}
             </button>
+            {onFreeze && (
+              <button
+                onPointerUp={(e) => { e.stopPropagation(); handleFreeze(); }}
+                style={{ width: 34, height: 34, borderRadius: "50%", background: isFrozen ? "rgba(96,165,250,.45)" : (dark ? "rgba(255,255,255,.15)" : "rgba(0,0,0,.05)"), border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .2s ease" }}
+              >
+                {freezing
+                  ? <Loader2 size={16} color={tc} className="animate-spin" />
+                  : <Snowflake size={16} color={isFrozen ? "#60a5fa" : tc} opacity={isFrozen ? 1 : 0.7} />}
+              </button>
+            )}
           </div>
         )}
         {/* Footer: EXP CHK / CVV / Mastercard */}
@@ -317,13 +367,14 @@ interface Props {
   cards: (CardOrder & { liveBalance: number })[];
   loading: boolean;
   onDeposit?: (card: CardOrder & { liveBalance: number }) => void;
+  onFreeze?: (card: CardOrder & { liveBalance: number }, freeze: boolean) => Promise<void>;
 }
 
 /* ── Card peek height (visible portion when stacked) ─────────────── */
 const PEEK = 52;
 
 /* ── CardList export — Apple Wallet stack ─────────────────────────── */
-export function CardList({ cards, loading, onDeposit }: Props) {
+export function CardList({ cards, loading, onDeposit, onFreeze }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
   /* Deferred flag — mounts TransactionHistory AFTER the card animation
      has had at least two frames to paint, so the heavy DOM work from
@@ -474,6 +525,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
               <CardVisual
                 card={card}
                 onDeposit={onDeposit ? () => onDeposit(card) : undefined}
+                onFreeze={onFreeze ? (freeze) => onFreeze(card, freeze) : undefined}
                 isPeeking={showPeekInfo}
               />
               {/* Peek info overlay — visible on stacked non-front cards */}

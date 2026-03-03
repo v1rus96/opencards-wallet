@@ -34,7 +34,7 @@ export function useWalletData() {
       ]);
 
       // Get live balances for each card
-      const completedOrders = orders.filter((o: CardOrder) => o.status === 'completed');
+      const completedOrders = orders.filter((o: CardOrder) => o.status === 'completed' || o.status === 'frozen');
       const cardsWithBalance = await Promise.all(
         completedOrders.map(async (card: CardOrder) => {
           try {
