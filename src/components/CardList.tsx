@@ -378,7 +378,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
         style={{
           position: "relative",
           width: "100%",
-          overflow: "hidden",
+          zIndex: 2, /* card stack sits visually above transactions */
           /* Height matches cards + peek offset + padding below */
           paddingBottom: `calc(${(227 / 360) * 100}% + ${(isCollapsed ? (cards.length - 1) : 0) * PEEK}px + 24px)`,
           transition: "padding-bottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
@@ -407,8 +407,8 @@ export function CardList({ cards, loading, onDeposit }: Props) {
               y = 0;
               z = cards.length + 1;
             } else {
-              /* Cards BELOW selected — slide down off-screen completely */
-              y = cardH + cards.length * PEEK + 500; /* move them far down so transactions can show */
+              /* Cards BELOW selected — slide down slightly and fade out, over the transactions */
+              y = cardH + cards.length * PEEK + 120;
               z = idx;
               opacity = 0;
             }
@@ -496,7 +496,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
       <div
         style={{
           position: "relative",
-          zIndex: 10,
+          zIndex: 1, /* sit below the sliding cards */
           display: "grid",
           gridTemplateRows: selected !== null ? "1fr" : "0fr",
           transition: "grid-template-rows 0.4s cubic-bezier(0.25, 1, 0.5, 1)",
