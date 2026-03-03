@@ -422,12 +422,18 @@ export function CardList({ cards, loading, onDeposit }: Props) {
 
           /* Staggered delay — creates cascading waterfall effect */
           let delay: number;
+          let transformDuration = "0.4s";
+          let transformEasing = "cubic-bezier(0.25, 1, 0.5, 1)";
+          let opacityDuration = "0.15s";
+
           if (isCollapsed) {
-            delay = Math.abs(idx - (selected ?? idx)) * 0.025;  /* fast fan back */
-          } else if (idx < selected!) {
-            delay = (selected! - idx) * 0.02;
+            delay = Math.abs(idx - (selected ?? idx)) * 0.04;  /* fan back */
           } else if (idx > selected!) {
-            delay = (idx - selected!) * 0.025;  /* quick cascade down */
+            /* bottom cards slide down smoothly together, no delays */
+            delay = 0;
+            transformDuration = "0.4s";
+            transformEasing = "cubic-bezier(0.25, 1, 0.5, 1)"; /* smooth glide */
+            opacityDuration = "0.2s";
           } else {
             delay = 0;
           }
@@ -445,7 +451,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
                 transformOrigin: "top center",
                 zIndex: z,
                 opacity,
-                transition: `transform 0.4s cubic-bezier(0.25, 1, 0.5, 1) ${delay}s, opacity 0.15s ease ${delay}s`,
+                transition: `transform ${transformDuration} ${transformEasing} ${delay}s, opacity ${opacityDuration} ease ${delay}s`,
                 willChange: "transform, opacity",
                 cursor: "pointer",
               }}
