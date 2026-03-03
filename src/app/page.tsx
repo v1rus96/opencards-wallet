@@ -31,6 +31,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<TabId>('overview');
   const [view, setView] = useState<View>('main');
   const [depositCard, setDepositCard] = useState<(CardOrder & { liveBalance: number }) | null>(null);
+  const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -51,7 +52,8 @@ export default function Home() {
 
   const handleDeposit = (card: CardOrder & { liveBalance: number }) => {
     setDepositCard(card);
-    setView('deposit');
+    // Delay view change slightly so the component mounts before sliding up
+    setTimeout(() => setIsDepositOpen(true), 10);
     haptic('medium');
   };
 
@@ -121,15 +123,6 @@ export default function Home() {
               <OrderCard onBack={() => setView('main')} onSuccess={handleOrderSuccess} />
             )}
 
-            {/* Deposit Flow */}
-            {view === 'deposit' && depositCard && (
-              <DepositCard
-                card={depositCard}
-                onBack={() => { setView('main'); setDepositCard(null); }}
-                onSuccess={handleOrderSuccess}
-              />
-            )}
-
             {/* Main Views */}
             {view === 'main' && (
               <>
@@ -139,7 +132,7 @@ export default function Home() {
 
                     <div className="mt-4 grid grid-cols-4 gap-2">
                       {[
-                        { icon: <ArrowUpRight size={20} />, label: 'Send', action: () => {} },
+                        { icon: <ArrowUpRight size={20} />, label: 'Send', action: () => { } },
                         { icon: <CreditCard size={20} />, label: 'Cards', action: () => handleTab('cards') },
                         { icon: <Plus size={20} />, label: 'New Card', action: () => { setView('order'); haptic('medium'); } },
                         { icon: <Settings size={20} />, label: 'Settings', action: () => handleTab('settings') },
@@ -250,6 +243,28 @@ export default function Home() {
       {view !== 'setup' && (
         <TabBar active={activeTab} onSelect={handleTab} bottomInset={safeArea.bottom} />
       )}
+
+      {/* Deposit Bottom Sheet Overlay */}
+      <div
+        className={`fixed inset-0 z-50 flex flex-col justify-end transition-all duration-300 ${isDepositOpen ? 'visible bg-black/60' : 'invisible bg-transparent'}`}
+        onClick={() => { setIsDepositOpen(false); setTimeout(() => setDepositCard(null), 300); }}
+      >
+        <div
+          className={`relative max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-zinc-950 px-4 pb-12 pt-6 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isDepositOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Handle bar */}
+          <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-zinc-800" />
+
+          {depositCard && (
+            <DepositCard
+              card={depositCard}
+              onBack={() => { setIsDepositOpen(false); setTimeout(() => setDepositCard(null), 300); }}
+              onSuccess={() => { handleOrderSuccess(); setIsDepositOpen(false); setTimeout(() => setDepositCard(null), 300); }}
+            />
+          )}
+        </div>
+      </div>
     </div>
   );
 }

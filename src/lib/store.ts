@@ -8,7 +8,7 @@ const STORAGE_KEY = 'wallet_config';
 
 const DEFAULT_CONFIG: WalletConfig = {
   apiKey: '',
-  apiBase: 'https://opencards-api-production.up.railway.app/api/v1',
+  apiBase: '/api/v1',
   configured: false,
 };
 

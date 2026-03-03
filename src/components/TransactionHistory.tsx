@@ -19,9 +19,10 @@ interface Transaction {
 
 interface Props {
   cards: (CardOrder & { liveBalance: number })[];
+  hideFilter?: boolean;
 }
 
-export function TransactionHistory({ cards }: Props) {
+export function TransactionHistory({ cards, hideFilter = false }: Props) {
   const [transactions, setTransactions] = useState<(Transaction & { cardLast4: string })[]>([]);
   const [selectedCard, setSelectedCard] = useState<string>('all');
   const [loading, setLoading] = useState(true);
@@ -83,31 +84,31 @@ export function TransactionHistory({ cards }: Props) {
   return (
     <div>
       {/* Card filter pills */}
-      <div className="mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        <button
-          onClick={() => setSelectedCard('all')}
-          className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-            selectedCard === 'all'
-              ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
-              : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-          }`}
-        >
-          All
-        </button>
-        {uniqueCards.map(last4 => (
+      {!hideFilter && uniqueCards.length > 1 && (
+        <div className="mb-4 flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
           <button
-            key={last4}
-            onClick={() => setSelectedCard(last4!)}
-            className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
-              selectedCard === last4
+            onClick={() => setSelectedCard('all')}
+            className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${selectedCard === 'all'
                 ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
                 : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
-            }`}
+              }`}
           >
-            •{last4}
+            All
           </button>
-        ))}
-      </div>
+          {uniqueCards.map(last4 => (
+            <button
+              key={last4}
+              onClick={() => setSelectedCard(last4!)}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${selectedCard === last4
+                  ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
+                  : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
+                }`}
+            >
+              •{last4}
+            </button>
+          ))}
+        </div>
+      )}
 
       {loading ? (
         <div className="space-y-2">
@@ -141,9 +142,8 @@ export function TransactionHistory({ cards }: Props) {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className={`text-sm font-bold ${
-                    (tx.amount || 0) > 0 ? 'text-emerald-400' : 'text-red-400'
-                  }`}>
+                  <p className={`text-sm font-bold ${(tx.amount || 0) > 0 ? 'text-emerald-400' : 'text-red-400'
+                    }`}>
                     {(tx.amount || 0) > 0 ? '+' : '-'}${Math.abs(tx.amount || 0).toFixed(2)}
                   </p>
                   <p className="text-[11px] text-zinc-500">{tx.status || 'completed'}</p>

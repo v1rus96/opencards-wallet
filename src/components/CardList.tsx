@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import { Loader2, CreditCard } from 'lucide-react';
 import { CardOrder, CardSensitive } from '@/types';
 import { getCardSensitive } from '@/lib/api';
+
+const TransactionHistory = dynamic(() => import('@/components/TransactionHistory').then(m => m.TransactionHistory), { ssr: false });
 
 /* ── All designs ──────────────────────────────────────────────────── */
 const DESIGNS = [
@@ -255,7 +258,12 @@ function CardVisual({
         {!isPeeking && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
             <span style={{ fontFamily: f1, fontSize: 12, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: labelTs, opacity: .8 }}>VIRTUAL</span>
-            <button onClick={() => setDesignIdx(i => (i + 1) % DESIGNS.length)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", fontFamily: f1, fontSize: 16, fontWeight: 800, letterSpacing: 3, color: tc, textShadow: ts, lineHeight: 1 }}>PLATA</button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setDesignIdx(i => (i + 1) % DESIGNS.length); }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", fontFamily: f1, fontSize: 16, fontWeight: 800, letterSpacing: 3, color: tc, textShadow: ts, lineHeight: 1 }}
+            >
+              PLATA
+            </button>
           </div>
         )}
         <div style={{ flex: 1 }} />
@@ -263,14 +271,24 @@ function CardVisual({
         {balance != null && (
           <div style={{ marginBottom: showDetails && cardNumber ? 16 : 8, display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontFamily: f2, fontSize: 30, fontWeight: 700, color: tc, textShadow: ts, letterSpacing: -.5 }}>{"$" + balance.toFixed(2)}</span>
-            {onDeposit && <button onClick={onDeposit} style={{ width: 30, height: 30, borderRadius: "50%", background: dark ? "rgba(255,255,255,.2)" : "#1A1D21", color: "#fff", border: "none", cursor: "pointer", display: "grid", placeItems: "center", padding: 0 }}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="7" y1="1" x2="7" y2="13" stroke="#fff" strokeWidth="2" strokeLinecap="round" /><line x1="1" y1="7" x2="13" y2="7" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></svg></button>}
+            {onDeposit && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onDeposit(); }}
+                style={{ width: 30, height: 30, borderRadius: "50%", background: dark ? "rgba(255,255,255,.2)" : "#1A1D21", color: "#fff", border: "none", cursor: "pointer", display: "grid", placeItems: "center", padding: 0 }}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="7" y1="1" x2="7" y2="13" stroke="#fff" strokeWidth="2" strokeLinecap="round" /><line x1="1" y1="7" x2="13" y2="7" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></svg>
+              </button>
+            )}
           </div>
         )}
         {/* Card number + eye toggle */}
         {showDetails && cardNumber && (
           <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontFamily: f2, fontSize: 18, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: ts, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fmtNum(cardNumber)}</span>
-            <button onClick={handleVis} style={{ width: 34, height: 34, borderRadius: "50%", background: bb, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <button
+              onClick={(e) => { e.stopPropagation(); handleVis(); }}
+              style={{ width: 34, height: 34, borderRadius: "50%", background: bb, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+            >
               {revealing ? (
                 <Loader2 size={16} color={tc} className="animate-spin" />
               ) : isRevealed
@@ -307,6 +325,11 @@ const PEEK = 52;
 /* ── CardList export — Apple Wallet stack ─────────────────────────── */
 export function CardList({ cards, loading, onDeposit }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
+
+  /* Memoize the array so TransactionHistory doesn't get a new reference on every render */
+  const selectedCardsArr = useMemo(() => {
+    return selected !== null ? [cards[selected]] : [];
+  }, [cards, selected]);
 
   if (loading) {
     return (
@@ -346,109 +369,155 @@ export function CardList({ cards, loading, onDeposit }: Props) {
     }
   };
 
+
+
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        /* Use aspect ratio to calculate height dynamically */
-        paddingBottom: `calc(${(227 / 360) * 100}% + ${(isCollapsed ? (cards.length - 1) : Math.max(0, cards.length - 1 - (selected ?? 0))) * PEEK}px)`,
-        transition: "padding-bottom 0.4s cubic-bezier(0.25, 1, 0.5, 1)",
-      }}
-    >
-      {cards.map((card, idx) => {
-        let y: number;
-        let z: number;
-        let opacity = 1;
-        let scale = 1;
+    <div style={{ position: "relative" }}>
+      {/* Container for card stack */}
+      <div
+        style={{
+          position: "relative",
+          width: "100%",
+          overflow: "hidden",
+          /* Height matches cards + peek offset + padding below */
+          paddingBottom: `calc(${(227 / 360) * 100}% + ${(isCollapsed ? (cards.length - 1) : 0) * PEEK}px + 24px)`,
+          transition: "padding-bottom 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)",
+        }}
+      >
+        {cards.map((card, idx) => {
+          let y: number;
+          let z: number;
+          let opacity = 1;
+          let scale = 1;
 
-        if (isCollapsed) {
-          /* Stack: each card peeks — first card at top (behind), last card in front */
-          y = idx * PEEK;
-          z = idx;  /* last card has highest z — sits in front */
-        } else {
-          if (idx < selected!) {
-            /* Cards ABOVE selected — tuck behind the selected card + progressive shrink */
-            const distBehind = selected! - idx;
-            y = 0;
-            z = idx;  /* lower z = hidden behind selected */
-            opacity = 0;
-            scale = 1 - distBehind * 0.05;  /* furthest behind shrinks most */
-          } else if (idx === selected) {
-            /* SELECTED card — moves to top position */
-            y = 0;
-            z = cards.length + 1;
+          if (isCollapsed) {
+            /* Stack: each card peeks — first card at top (behind), last card in front */
+            y = idx * PEEK;
+            z = idx;  /* last card has highest z — sits in front */
           } else {
-            /* Cards BELOW selected — slide down off-screen */
-            y = cardH + (cards.length - 1) * PEEK + 40;
-            z = idx;
-            opacity = 0;
+            if (idx < selected!) {
+              /* Cards ABOVE selected — tuck behind the selected card + progressive shrink */
+              const distBehind = selected! - idx;
+              y = 0;
+              z = idx;  /* lower z = hidden behind selected */
+              opacity = 0;
+              scale = 1 - distBehind * 0.05;  /* furthest behind shrinks most */
+            } else if (idx === selected) {
+              /* SELECTED card — moves to top position */
+              y = 0;
+              z = cards.length + 1;
+            } else {
+              /* Cards BELOW selected — slide down off-screen completely */
+              y = cardH + cards.length * PEEK + 500; /* move them far down so transactions can show */
+              z = idx;
+              opacity = 0;
+            }
           }
-        }
 
-        /* Show peek info when card is stacked behind another (not the front card in collapsed, or not selected) */
-        const isFrontCard = isCollapsed && idx === cards.length - 1;
-        const isSelectedCard = !isCollapsed && idx === selected;
-        const showPeekInfo = !isFrontCard && !isSelectedCard && opacity > 0;
-        const maskedNum = `•••• •••• •••• ${card.last4 || '••••'}`;
+          /* Show peek info when card is stacked behind another (not the front card in collapsed, or not selected) */
+          const isFrontCard = isCollapsed && idx === cards.length - 1;
+          const isSelectedCard = !isCollapsed && idx === selected;
+          const showPeekInfo = !isFrontCard && !isSelectedCard && opacity > 0;
+          const maskedNum = `•••• •••• •••• ${card.last4 || '••••'}`;
 
-        return (
-          <div
-            key={card.id}
-            onClick={() => handleTap(idx)}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              transform: `translateY(${y}px) scale(${scale})`,
-              transformOrigin: "top center",
-              zIndex: z,
-              opacity,
-              transition: "all 0.4s cubic-bezier(0.25, 1, 0.5, 1)",
-              cursor: "pointer",
-            }}
-          >
-            <CardVisual
-              card={card}
-              onDeposit={onDeposit ? () => onDeposit(card) : undefined}
-              isPeeking={showPeekInfo}
-            />
-            {/* Peek info overlay — visible on stacked non-front cards */}
-            {showPeekInfo && (
-              <div style={{
+          /* Staggered delay — creates cascading waterfall effect */
+          let delay: number;
+          if (isCollapsed) {
+            delay = Math.abs(idx - (selected ?? idx)) * 0.025;  /* fast fan back */
+          } else if (idx < selected!) {
+            delay = (selected! - idx) * 0.02;
+          } else if (idx > selected!) {
+            delay = (idx - selected!) * 0.025;  /* quick cascade down */
+          } else {
+            delay = 0;
+          }
+
+          return (
+            <div
+              key={card.id}
+              onClick={() => handleTap(idx)}
+              style={{
                 position: "absolute",
                 top: 0,
                 left: 0,
-                right: 0,
-                height: PEEK,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                padding: "0 20px",
-                pointerEvents: "none",
-                zIndex: 2,
-              }}>
-                <span style={{
-                  fontFamily: "'Source Code Pro', 'Courier New', monospace",
-                  fontSize: 15,
-                  fontWeight: 700,
-                  color: "#1a1d21",
-                  textShadow: "0px 1px 0px rgba(255,255,255,.8), 0px -1px 0px rgba(0,0,0,.15)",
-                }}>${card.liveBalance?.toFixed(2) ?? '0.00'}</span>
-                <span style={{
-                  fontFamily: "'Source Code Pro', 'Courier New', monospace",
-                  fontSize: 12,
-                  fontWeight: 600,
-                  color: "rgba(0,0,0,0.5)",
-                  textShadow: "0px 1px 0px rgba(255,255,255,.6), 0px -1px 0px rgba(0,0,0,.1)",
-                  letterSpacing: 1,
-                }}>{maskedNum}</span>
-              </div>
+                width: "100%",
+                transform: `translateY(${y}px) scale(${scale})`,
+                transformOrigin: "top center",
+                zIndex: z,
+                opacity,
+                transition: `transform 0.4s cubic-bezier(0.25, 1, 0.5, 1) ${delay}s, opacity 0.15s ease ${delay}s`,
+                willChange: "transform, opacity",
+                cursor: "pointer",
+              }}
+            >
+              <CardVisual
+                card={card}
+                onDeposit={onDeposit ? () => onDeposit(card) : undefined}
+                isPeeking={showPeekInfo}
+              />
+              {/* Peek info overlay — visible on stacked non-front cards */}
+              {showPeekInfo && (
+                <div style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: PEEK,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "0 20px",
+                  pointerEvents: "none",
+                  zIndex: 2,
+                }}>
+                  <span style={{
+                    fontFamily: "'Source Code Pro', 'Courier New', monospace",
+                    fontSize: 15,
+                    fontWeight: 700,
+                    color: "#1a1d21",
+                    textShadow: "0px 1px 0px rgba(255,255,255,.8), 0px -1px 0px rgba(0,0,0,.15)",
+                  }}>${card.liveBalance?.toFixed(2) ?? '0.00'}</span>
+                  <span style={{
+                    fontFamily: "'Source Code Pro', 'Courier New', monospace",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "rgba(0,0,0,0.5)",
+                    textShadow: "0px 1px 0px rgba(255,255,255,.6), 0px -1px 0px rgba(0,0,0,.1)",
+                    letterSpacing: 1,
+                  }}>{maskedNum}</span>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Render selected card transactions below using CSS Grid for height transition */}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 10,
+          display: "grid",
+          gridTemplateRows: selected !== null ? "1fr" : "0fr",
+          transition: "grid-template-rows 0.4s cubic-bezier(0.25, 1, 0.5, 1)",
+        }}
+        onClick={(e) => e.stopPropagation()} /* Prevent clicking transactions from collapsing stack */
+      >
+        <div style={{ overflow: "hidden" }}>
+          <div style={{
+            paddingTop: 24,
+            opacity: selected !== null ? 1 : 0,
+            transform: `translateY(${selected !== null ? '0px' : '20px'})`,
+            pointerEvents: selected !== null ? 'auto' : 'none',
+            transition: "opacity 0.4s ease 0.1s, transform 0.4s cubic-bezier(0.25, 1, 0.5, 1) 0.1s",
+            willChange: "opacity, transform"
+          }}>
+            {selected !== null && (
+              <TransactionHistory cards={selectedCardsArr} hideFilter />
             )}
           </div>
-        );
-      })}
+        </div>
+      </div>
     </div>
   );
 }
