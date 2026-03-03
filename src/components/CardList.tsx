@@ -439,7 +439,7 @@ export function CardList({ cards, loading, onDeposit }: Props) {
             opacityDuration = "0.2s";
           } else {
             /* SELECTED CARD */
-            delay = isCollapsed ? 0 : 0.01; /* tiny 10ms delay when expanding to ensure WebKit doesn't drop the transition frame */
+            delay = isCollapsed ? 0 : 0.1; /* slightly longer delay when expanding so WebKit has time to paint before animating */
           }
 
           return (
