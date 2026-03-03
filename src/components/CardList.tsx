@@ -1,119 +1,313 @@
 'use client';
 
-import { useState } from 'react';
-import { Eye, EyeOff, Loader2, CreditCard, ArrowDownLeft } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Loader2, CreditCard } from 'lucide-react';
 import { CardOrder, CardSensitive } from '@/types';
 import { getCardSensitive } from '@/lib/api';
 
-interface Props {
-  cards: (CardOrder & { liveBalance: number })[];
-  loading: boolean;
-  onDeposit?: (card: CardOrder & { liveBalance: number }) => void;
+/* ── All designs ──────────────────────────────────────────────────── */
+const DESIGNS = [
+  { name: "Dynamic", type: "dynamic" as const },
+  { name: "Snowy Mint", img: "/snowy-mint.jpg" },
+  { name: "Iridescent", type: "iridescent" as const },
+  { name: "Egg Sour", bg: "linear-gradient(135deg, #fef3c7 0%, #fde68a 25%, #fcd34d 50%, #fef9c3 100%)" },
+  { name: "Columbia Blue", bg: "linear-gradient(135deg, #bfdbfe 0%, #93c5fd 25%, #a5b4fc 50%, #ddd6fe 75%, #c7d2fe 100%)" },
+  { name: "My Pink", bg: "linear-gradient(135deg, #fce7f3 0%, #fbcfe8 25%, #f9a8d4 50%, #fda4af 75%, #fecdd3 100%)" },
+  { name: "Buttercup", bg: "linear-gradient(135deg, #fef08a 0%, #fde047 25%, #facc15 50%, #fbbf24 75%, #fef9c3 100%)" },
+  { name: "Cream Whisper", bg: "linear-gradient(135deg, #fefce8 0%, #fef3c7 30%, #fde68a 60%, #fffbeb 100%)" },
+  { name: "Honeysuckle", bg: "linear-gradient(135deg, #fecaca 0%, #fca5a5 25%, #f9a8d4 50%, #fecdd3 75%, #fed7aa 100%)" },
+  { name: "Tonys Pink", bg: "linear-gradient(135deg, #fbcfe8 0%, #f9a8d4 25%, #f472b6 50%, #fda4af 75%, #fecdd3 100%)" },
+  { name: "Midnight", bg: "linear-gradient(135deg, #1e1b4b 0%, #312e81 25%, #3730a3 50%, #1e3a5f 75%, #0f172a 100%)" },
+  { name: "Aurora", bg: "linear-gradient(135deg, #065f46 0%, #047857 20%, #0d9488 40%, #2dd4bf 60%, #a78bfa 80%, #7c3aed 100%)" },
+  { name: "Sunset", bg: "linear-gradient(135deg, #f97316 0%, #ef4444 25%, #db2777 50%, #9333ea 75%, #7c3aed 100%)" },
+];
+
+/* ── Apple Card-style iridescent gyroscope background ────────────── */
+function IridescentBg() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  const tiltRef = useRef({ x: 0, y: 0 });
+  const rafId = useRef<number>(0);
+
+  useEffect(() => {
+    let hasGyro = false;
+
+    /* Gyroscope handler (mobile) */
+    const handleOrientation = (e: DeviceOrientationEvent) => {
+      hasGyro = true;
+      const x = Math.max(-1, Math.min(1, (e.gamma || 0) / 45));  // left/right tilt
+      const y = Math.max(-1, Math.min(1, (e.beta || 0) / 45));  // front/back tilt
+      tiltRef.current = { x, y };
+    };
+
+    /* Mouse handler (desktop fallback) */
+    const handleMouse = (e: MouseEvent) => {
+      if (hasGyro) return;
+      const el = ref.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
+      const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
+      tiltRef.current = { x, y };
+    };
+
+    /* Smooth animation loop */
+    function animate() {
+      setTilt(prev => ({
+        x: prev.x + (tiltRef.current.x - prev.x) * 0.08,
+        y: prev.y + (tiltRef.current.y - prev.y) * 0.08,
+      }));
+      rafId.current = requestAnimationFrame(animate);
+    }
+    rafId.current = requestAnimationFrame(animate);
+
+    /* Request gyroscope permission (iOS 13+) */
+    const doe = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
+    if (typeof doe.requestPermission === 'function') {
+      doe.requestPermission().then(state => {
+        if (state === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+      }).catch(() => { });
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation);
+    }
+    window.addEventListener('mousemove', handleMouse);
+
+    return () => {
+      cancelAnimationFrame(rafId.current);
+      window.removeEventListener('deviceorientation', handleOrientation);
+      window.removeEventListener('mousemove', handleMouse);
+    };
+  }, []);
+
+  const hueShift = tilt.x * 60;            // -60° to +60° hue rotation
+  const lightX = 50 + tilt.x * 35;       // spotlight X position
+  const lightY = 50 + tilt.y * 35;       // spotlight Y position
+  const angle = 135 + tilt.x * 30;      // gradient angle shifts
+
+  return (
+    <div ref={ref} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden" }}>
+      {/* Base titanium layer */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `linear-gradient(${angle}deg, #e8e8ec 0%, #d1d1d6 25%, #f5f5f7 50%, #c7c7cc 75%, #e8e8ec 100%)`,
+      }} />
+      {/* Rainbow iridescence layer */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `
+          linear-gradient(${angle + 90}deg,
+            hsla(${280 + hueShift}, 80%, 75%, 0.35) 0%,
+            hsla(${320 + hueShift}, 85%, 70%, 0.3) 15%,
+            hsla(${350 + hueShift}, 80%, 72%, 0.25) 30%,
+            hsla(${30 + hueShift}, 90%, 70%, 0.2) 45%,
+            hsla(${60 + hueShift}, 85%, 65%, 0.25) 55%,
+            hsla(${150 + hueShift}, 75%, 65%, 0.3) 70%,
+            hsla(${200 + hueShift}, 80%, 70%, 0.35) 85%,
+            hsla(${260 + hueShift}, 75%, 72%, 0.3) 100%
+          )`,
+        mixBlendMode: "color",
+        transition: "background 0.05s linear",
+      }} />
+      {/* Specular highlight that follows tilt */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `radial-gradient(ellipse 80% 60% at ${lightX}% ${lightY}%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.15) 40%, transparent 70%)`,
+        transition: "background 0.05s linear",
+      }} />
+      {/* Prismatic refraction bands */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `
+          repeating-linear-gradient(${angle + 45}deg,
+            transparent 0px,
+            rgba(255,255,255,0.03) 2px,
+            transparent 4px,
+            rgba(200,180,255,0.04) 6px,
+            transparent 8px
+          )`,
+        opacity: 0.7 + Math.abs(tilt.x) * 0.3,
+      }} />
+      {/* Edge highlight */}
+      <div style={{
+        position: "absolute", inset: 0,
+        background: `linear-gradient(${180 + tilt.x * 20}deg, rgba(255,255,255,0.1) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.06) 100%)`,
+      }} />
+    </div>
+  );
 }
 
+
+/* ── Dynamic mesh canvas (exact copy from plata-card-v3) ─────────── */
+function DynamicMesh() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const c = ref.current; if (!c) return; const ctx = c.getContext("2d"); if (!ctx) return; let frame: number;
+    const cols = ["#a78bfa", "#f472b6", "#38bdf8", "#34d399", "#fbbf24"];
+    const blobs = cols.map((color, i) => ({ color, x: 0.15 + 0.7 * Math.random(), y: 0.15 + 0.7 * Math.random(), vx: (0.001 + Math.random() * 0.002) * (i % 2 ? 1 : -1), vy: (0.001 + Math.random() * 0.002) * (i % 2 ? -1 : 1), r: 0.3 + Math.random() * 0.2 }));
+    function draw() {
+      const w = (c!.width = c!.offsetWidth * 2), h = (c!.height = c!.offsetHeight * 2);
+      ctx!.fillStyle = "#1a1030"; ctx!.fillRect(0, 0, w, h);
+      blobs.forEach(b => {
+        b.x += b.vx; b.y += b.vy; if (b.x < -0.1 || b.x > 1.1) b.vx *= -1; if (b.y < -0.1 || b.y > 1.1) b.vy *= -1;
+        const g = ctx!.createRadialGradient(b.x * w, b.y * h, 0, b.x * w, b.y * h, b.r * Math.max(w, h));
+        g.addColorStop(0, b.color + "bb"); g.addColorStop(0.5, b.color + "44"); g.addColorStop(1, b.color + "00");
+        ctx!.globalCompositeOperation = "lighter"; ctx!.fillStyle = g; ctx!.fillRect(0, 0, w, h);
+      });
+      ctx!.globalCompositeOperation = "source-over"; frame = requestAnimationFrame(draw);
+    } draw(); return () => cancelAnimationFrame(frame);
+  }, []);
+  return <canvas ref={ref} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />;
+}
+
+/* ── Format card PAN: "1234567890123456" → "1234 5678 9012 3456" ── */
+function fmtNum(n: string) { return n.replace(/(.{4})/g, "$1 ").trim(); }
+
+/* ── Single card visual — exact plata-card-v3 Card component ─────── */
 function CardVisual({
   card,
   onDeposit,
+  isPeeking = false,
 }: {
   card: CardOrder & { liveBalance: number };
   onDeposit?: () => void;
+  isPeeking?: boolean;
 }) {
-  const [revealed, setRevealed] = useState(false);
+  /* reveal / sensitive state */
+  const [isRevealed, setIsRevealed] = useState(false);
   const [sensitive, setSensitive] = useState<CardSensitive | null>(null);
   const [revealing, setRevealing] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
+  const [designIdx, setDesignIdx] = useState(1); // Snowy Mint default
 
-  const handleReveal = async () => {
-    if (revealed) {
-      setRevealed(false);
-      return;
-    }
+  /* phase animation (slow background rotation + shimmer) */
+  const [ph, setPh] = useState(0);
+  const fr = useRef<number>(0);
+  useEffect(() => {
+    let s: number | null = null;
+    function tick(ts: number) { if (!s) s = ts; setPh(((ts - s) / 10000) % 1); fr.current = requestAnimationFrame(tick); }
+    fr.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(fr.current);
+  }, []);
+
+  /* reveal handler */
+  const handleVis = useCallback(async () => {
+    if (isRevealed) { setIsRevealed(false); return; }
     setRevealing(true);
     try {
       const data = await getCardSensitive(card.id);
       setSensitive(data);
-      setRevealed(true);
-    } catch (err) {
-      console.error('Failed to reveal card:', err);
-    } finally {
-      setRevealing(false);
-    }
-  };
+      setIsRevealed(true);
+    } catch (err) { console.error('Failed to reveal card:', err); }
+    finally { setRevealing(false); }
+  }, [isRevealed, card.id]);
 
-  const formatPan = (pan: string) => pan.replace(/(.{4})/g, '$1 ').trim();
+  /* design variables */
+  const d = DESIGNS[designIdx] || DESIGNS[1];
+  const isDyn = d.type === "dynamic";
+  const isIri = d.type === "iridescent";
+  const dark = ["Midnight", "Aurora", "Sunset"].includes(d.name) || isDyn;
+  /* Engraved = text darker than background + white shadow below */
+  const tc = dark ? "#ffffff" : "#1a1d21";
+  const ts = dark
+    ? "0px 1px 0px rgba(255,255,255,.3), 0px -1px 0px rgba(0,0,0,.7)"
+    : "0px 1px 0px rgba(255,255,255,.8), 0px -1px 0px rgba(0,0,0,.15)";
+  const sc = dark ? "rgba(255,255,255,.35)" : "rgba(0,0,0,.35)";
+  const labelTs = dark
+    ? "0px 1px 0px rgba(255,255,255,.3), 0px -1px 0px rgba(0,0,0,.7)"
+    : "0px 1px 0px rgba(255,255,255,.8), 0px -1px 0px rgba(0,0,0,.15)";
+  const bb = dark ? "rgba(255,255,255,.15)" : "rgba(0,0,0,.05)";
+  const f1 = "'Inter', system-ui, sans-serif";
+  const f2 = "'Source Code Pro', 'Courier New', monospace";
+  const mcF = dark
+    ? "drop-shadow(0px 1px 0px rgba(255,255,255,.3)) drop-shadow(0px -1px 0px rgba(0,0,0,.7))"
+    : "drop-shadow(0px 1px 0px rgba(255,255,255,.8)) drop-shadow(0px -1px 0px rgba(0,0,0,.15))";
+
+  /* card data */
+  const cardNumber = isRevealed && sensitive
+    ? sensitive.card_number
+    : `\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022${card.last4 || '\u2022\u2022\u2022\u2022'}`;
+  const rawExpiry = isRevealed && sensitive ? sensitive.expiry : null;
+  const expiryDate = rawExpiry
+    ? rawExpiry.replace(/(\d{2})\/?(\d{2})(\d{2})/, '$1/$3')  // MM/YYYY → MM/YY
+    : '\u2022\u2022/\u2022\u2022';
+  const cvv = isRevealed && sensitive ? sensitive.cvv : '\u2022\u2022\u2022';
+  const balance = card.liveBalance;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-teal-500/15 bg-gradient-to-br from-[#1a1a2e] to-[#16213e] p-6">
-      <div className="absolute -top-[30%] -right-[20%] h-[200px] w-[200px] bg-[radial-gradient(circle,rgba(45,212,191,0.12),transparent_70%)]" />
-
-      <div className="relative">
-        {/* Header */}
-        <div className="mb-5 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <CreditCard size={14} className="text-teal-400" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.15em] text-teal-400">
-              {card.brand || 'Mastercard'}
-            </span>
+    <div style={{ aspectRatio: "360/227", position: "relative", borderRadius: 12, overflow: "hidden", background: "#2A292D", boxShadow: "0 2px 8px rgba(0,0,0,.18), 0 8px 24px rgba(0,0,0,.22), 0 16px 48px rgba(0,0,0,.16)", userSelect: "none" }}>
+      {/* Background */}
+      <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%", transition: "filter .5s" }}>
+        {isDyn
+          ? <DynamicMesh />
+          : isIri
+            ? <IridescentBg />
+            : 'img' in d && d.img
+              ? <img src={d.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              : <div style={{ position: "absolute", inset: "-20%", width: "140%", height: "140%", background: d.bg, transform: "rotate(" + (ph * 15) + "deg)", transition: "transform .3s linear" }} />}
+      </div>
+      {/* Frosted border */}
+      <div style={{ position: "absolute", inset: 0, borderRadius: 12, pointerEvents: "none", borderTop: "1px solid rgba(255,255,255,.45)", borderLeft: "1px solid rgba(255,255,255,.15)", borderRight: "1px solid rgba(255,255,255,.1)", borderBottom: "1px solid rgba(255,255,255,.05)" }} />
+      {/* Holographic shimmer */}
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,255,255,.12) 48%, rgba(255,255,255,.18) 50%, rgba(255,255,255,.12) 52%, transparent 65%)", backgroundSize: "300% 100%", backgroundPosition: (ph * 300) + "% 0" }} />
+      {/* Content */}
+      <div style={{ position: "absolute", inset: 0, padding: "20px 24px", display: "flex", flexDirection: "column" }}>
+        {/* Header: VIRTUAL / PLATA — hidden when peeking in stack */}
+        {!isPeeking && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <span style={{ fontFamily: f1, fontSize: 12, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: labelTs, opacity: .8 }}>VIRTUAL</span>
+            <button onClick={() => setDesignIdx(i => (i + 1) % DESIGNS.length)} style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", fontFamily: f1, fontSize: 16, fontWeight: 800, letterSpacing: 3, color: tc, textShadow: ts, lineHeight: 1 }}>PLATA</button>
           </div>
-          <div className="flex items-center gap-2">
-            {onDeposit && (
-              <button
-                onClick={onDeposit}
-                className="flex items-center gap-1.5 rounded-lg border border-emerald-700/40 bg-emerald-800/30 px-3 py-1.5 text-[11px] font-semibold text-emerald-300 transition-all active:scale-95"
-              >
-                <ArrowDownLeft size={12} />
-                Deposit
-              </button>
-            )}
-            <button
-              onClick={handleReveal}
-              className="flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-800/80 px-3 py-1.5 text-[11px] font-semibold text-zinc-300 transition-all active:scale-95"
-            >
+        )}
+        <div style={{ flex: 1 }} />
+        {/* Balance */}
+        {balance != null && (
+          <div style={{ marginBottom: showDetails && cardNumber ? 16 : 8, display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontFamily: f2, fontSize: 30, fontWeight: 700, color: tc, textShadow: ts, letterSpacing: -.5 }}>{"$" + balance.toFixed(2)}</span>
+            {onDeposit && <button onClick={onDeposit} style={{ width: 30, height: 30, borderRadius: "50%", background: dark ? "rgba(255,255,255,.2)" : "#1A1D21", color: "#fff", border: "none", cursor: "pointer", display: "grid", placeItems: "center", padding: 0 }}><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><line x1="7" y1="1" x2="7" y2="13" stroke="#fff" strokeWidth="2" strokeLinecap="round" /><line x1="1" y1="7" x2="13" y2="7" stroke="#fff" strokeWidth="2" strokeLinecap="round" /></svg></button>}
+          </div>
+        )}
+        {/* Card number + eye toggle */}
+        {showDetails && cardNumber && (
+          <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: f2, fontSize: 18, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: ts, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{fmtNum(cardNumber)}</span>
+            <button onClick={handleVis} style={{ width: 34, height: 34, borderRadius: "50%", background: bb, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
               {revealing ? (
-                <Loader2 size={12} className="animate-spin" />
-              ) : revealed ? (
-                <EyeOff size={12} />
-              ) : (
-                <Eye size={12} />
-              )}
-              {revealing ? '...' : revealed ? 'Hide' : 'Reveal'}
+                <Loader2 size={16} color={tc} className="animate-spin" />
+              ) : isRevealed
+                ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={tc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity=".7"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" /><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" /><line x1="1" y1="1" x2="23" y2="23" /></svg>
+                : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={tc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity=".7"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>}
             </button>
           </div>
-        </div>
-
-        {/* Card Number */}
-        <p className="mb-5 font-mono text-lg font-semibold tracking-[3px] text-white">
-          {revealed && sensitive
-            ? formatPan(sensitive.card_number)
-            : `•••• •••• •••• ${card.last4 || '????'}`}
-        </p>
-
-        {/* Footer */}
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Balance</p>
-            <span className="inline-block rounded-lg bg-teal-500/10 px-3 py-1 text-sm font-bold text-teal-400">
-              ${card.liveBalance.toFixed(2)}
-            </span>
-          </div>
-          {revealed && sensitive ? (
-            <div className="text-center">
-              <p className="text-[10px] uppercase tracking-wider text-zinc-500">CVV</p>
-              <p className="font-mono text-sm font-semibold text-white">{sensitive.cvv}</p>
+        )}
+        {/* Footer: EXP CHK / CVV / Mastercard */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+          {showDetails ? (
+            <div style={{ display: "flex", gap: 24 }}>
+              {expiryDate && <div><div style={{ fontFamily: f1, fontSize: 8, fontWeight: 700, color: sc, letterSpacing: .5, textShadow: labelTs }}>EXP CHK</div><div style={{ fontFamily: f2, fontSize: 14, fontWeight: 600, letterSpacing: 2, color: tc, textShadow: ts }}>{expiryDate}</div></div>}
+              {cvv && <div><div style={{ fontFamily: f1, fontSize: 8, fontWeight: 700, color: sc, letterSpacing: .5, textShadow: labelTs }}>CVV</div><div style={{ fontFamily: f2, fontSize: 14, fontWeight: 600, letterSpacing: 2, color: tc, textShadow: ts }}>{cvv}</div></div>}
             </div>
-          ) : null}
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wider text-zinc-500">Expires</p>
-            <p className="text-sm font-semibold text-white">
-              {revealed && sensitive ? sensitive.expiry : (card.expiry || '—')}
-            </p>
-          </div>
+          ) : <div />}
+          <svg width="48" height="48" viewBox="0 0 24 24" style={{ display: "block", opacity: .85, marginRight: -6, marginBottom: -8, filter: mcF }}><path d="M12 6.654a6.786 6.786 0 0 1 2.596 5.344A6.786 6.786 0 0 1 12 17.34a6.786 6.786 0 0 1-2.596-5.343A6.786 6.786 0 0 1 12 6.654zm-.87-.582A7.783 7.783 0 0 0 8.4 12a7.783 7.783 0 0 0 2.728 5.926 6.798 6.798 0 1 1 .003-11.854zm1.742 11.854A7.783 7.783 0 0 0 15.6 12a7.783 7.783 0 0 0-2.73-5.928 6.798 6.798 0 1 1 .003 11.854z" fill={tc} /></svg>
         </div>
       </div>
     </div>
   );
 }
 
+/* ── Props ────────────────────────────────────────────────────────── */
+interface Props {
+  cards: (CardOrder & { liveBalance: number })[];
+  loading: boolean;
+  onDeposit?: (card: CardOrder & { liveBalance: number }) => void;
+}
+
+/* ── Card peek height (visible portion when stacked) ─────────────── */
+const PEEK = 52;
+
+/* ── CardList export — Apple Wallet stack ─────────────────────────── */
 export function CardList({ cards, loading, onDeposit }: Props) {
+  const [selected, setSelected] = useState<number | null>(null);
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -133,15 +327,128 @@ export function CardList({ cards, loading, onDeposit }: Props) {
     );
   }
 
+  /* Calculate the total stack height */
+  const cardH = 227;  /* intrinsic card height based on aspect-ratio 360/227 */
+  const isCollapsed = selected === null;
+
+  /* Container height:
+     - collapsed: card height + peek for each additional card
+     - expanded:  card height + peek for each card below selected */
+  const stackH = isCollapsed
+    ? cardH + (cards.length - 1) * PEEK
+    : cardH + (cards.length - 1 - selected) * PEEK;
+
+  const handleTap = (idx: number) => {
+    if (selected === idx) {
+      setSelected(null);  /* tap selected card → collapse */
+    } else {
+      setSelected(idx);   /* tap any card → select it */
+    }
+  };
+
   return (
-    <div className="space-y-3">
-      {cards.map((card) => (
-        <CardVisual
-          key={card.id}
-          card={card}
-          onDeposit={onDeposit ? () => onDeposit(card) : undefined}
-        />
-      ))}
+    <div
+      style={{
+        position: "relative",
+        width: "100%",
+        /* Use aspect ratio to calculate height dynamically */
+        paddingBottom: `calc(${(227 / 360) * 100}% + ${(isCollapsed ? (cards.length - 1) : Math.max(0, cards.length - 1 - (selected ?? 0))) * PEEK}px)`,
+        transition: "padding-bottom 0.4s cubic-bezier(0.25, 1, 0.5, 1)",
+      }}
+    >
+      {cards.map((card, idx) => {
+        let y: number;
+        let z: number;
+        let opacity = 1;
+        let scale = 1;
+
+        if (isCollapsed) {
+          /* Stack: each card peeks — first card at top (behind), last card in front */
+          y = idx * PEEK;
+          z = idx;  /* last card has highest z — sits in front */
+        } else {
+          if (idx < selected!) {
+            /* Cards ABOVE selected — tuck behind the selected card + progressive shrink */
+            const distBehind = selected! - idx;
+            y = 0;
+            z = idx;  /* lower z = hidden behind selected */
+            opacity = 0;
+            scale = 1 - distBehind * 0.05;  /* furthest behind shrinks most */
+          } else if (idx === selected) {
+            /* SELECTED card — moves to top position */
+            y = 0;
+            z = cards.length + 1;
+          } else {
+            /* Cards BELOW selected — slide down off-screen */
+            y = cardH + (cards.length - 1) * PEEK + 40;
+            z = idx;
+            opacity = 0;
+          }
+        }
+
+        /* Show peek info when card is stacked behind another (not the front card in collapsed, or not selected) */
+        const isFrontCard = isCollapsed && idx === cards.length - 1;
+        const isSelectedCard = !isCollapsed && idx === selected;
+        const showPeekInfo = !isFrontCard && !isSelectedCard && opacity > 0;
+        const maskedNum = `•••• •••• •••• ${card.last4 || '••••'}`;
+
+        return (
+          <div
+            key={card.id}
+            onClick={() => handleTap(idx)}
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${y}px) scale(${scale})`,
+              transformOrigin: "top center",
+              zIndex: z,
+              opacity,
+              transition: "all 0.4s cubic-bezier(0.25, 1, 0.5, 1)",
+              cursor: "pointer",
+            }}
+          >
+            <CardVisual
+              card={card}
+              onDeposit={onDeposit ? () => onDeposit(card) : undefined}
+              isPeeking={showPeekInfo}
+            />
+            {/* Peek info overlay — visible on stacked non-front cards */}
+            {showPeekInfo && (
+              <div style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                height: PEEK,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "0 20px",
+                pointerEvents: "none",
+                zIndex: 2,
+              }}>
+                <span style={{
+                  fontFamily: "'Source Code Pro', 'Courier New', monospace",
+                  fontSize: 15,
+                  fontWeight: 700,
+                  color: "#1a1d21",
+                  textShadow: "0px 1px 0px rgba(255,255,255,.8), 0px -1px 0px rgba(0,0,0,.15)",
+                }}>${card.liveBalance?.toFixed(2) ?? '0.00'}</span>
+                <span style={{
+                  fontFamily: "'Source Code Pro', 'Courier New', monospace",
+                  fontSize: 12,
+                  fontWeight: 600,
+                  color: "rgba(0,0,0,0.5)",
+                  textShadow: "0px 1px 0px rgba(255,255,255,.6), 0px -1px 0px rgba(0,0,0,.1)",
+                  letterSpacing: 1,
+                }}>{maskedNum}</span>
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

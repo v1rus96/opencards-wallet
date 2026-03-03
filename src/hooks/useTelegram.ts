@@ -59,10 +59,16 @@ export function useTelegram() {
     if (!wa) return;
     wa.ready?.();
     wa.expand?.();
-    wa.requestFullscreen?.();
+    // requestFullscreen requires Telegram WebApp v8.0+
+    try {
+      const ver = parseFloat(wa.version || '0');
+      if (ver >= 8.0 && typeof wa.requestFullscreen === 'function') {
+        wa.requestFullscreen();
+      }
+    } catch { /* ignore on unsupported versions / regular browser */ }
     wa.setHeaderColor?.('#09090b');
     wa.setBackgroundColor?.('#09090b');
-    wa.disableVerticalSwipes?.();
+    try { wa.disableVerticalSwipes?.(); } catch { /* v7.7+ */ }
   }, []);
 
   const haptic = useCallback((type: 'light' | 'medium' | 'heavy' | 'success' | 'error' | 'selection') => {
