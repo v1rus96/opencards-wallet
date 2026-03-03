@@ -438,7 +438,8 @@ export function CardList({ cards, loading, onDeposit }: Props) {
             transformEasing = "cubic-bezier(0.25, 1, 0.5, 1)"; /* smooth glide */
             opacityDuration = "0.2s";
           } else {
-            delay = 0;
+            /* SELECTED CARD */
+            delay = isCollapsed ? 0 : 0.01; /* tiny 10ms delay when expanding to ensure WebKit doesn't drop the transition frame */
           }
 
           return (
