@@ -189,7 +189,7 @@ export function CoinCarousel({ chains, loading, onChainSelect }: Props) {
 
       {/* Paginator dots */}
       {chains.length > 1 && (
-        <div className="absolute bottom-0 flex w-full items-center justify-center gap-2" style={{ height: 28 }}>
+        <div className="absolute bottom-0 flex w-full items-center justify-center gap-2" style={{ height: 28, zIndex: 200 }}>
           {chains.map((_, i) => {
             const active = Math.abs(i - Math.round(progress)) < 0.5;
             return (
