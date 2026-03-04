@@ -199,9 +199,11 @@ export function TabBar({ active, onSelect, bottomInset }: Props) {
             position: 'absolute',
             top: 0,
             width: `${(250 / TABS.length)}%`,
-            left: `${(activeIdx / TABS.length) * 100 - (75 / TABS.length)}%`,
+            left: 0,
             height: 70,
-            transition: 'left 300ms cubic-bezier(0.33, 1, 0.68, 1)',
+            transform: `translateX(${((activeIdx * 100 - 75) * 100 / 250)}%)`,
+            transition: 'transform 300ms cubic-bezier(0.33, 1, 0.68, 1)',
+            willChange: 'transform',
             pointerEvents: 'none',
             background: `radial-gradient(ellipse 50% 70% at 50% 140%, ${PRIMARY}80, transparent)`,
           }}

@@ -44,6 +44,7 @@ export function CoinCarousel({ chains, loading, onChainSelect }: Props) {
   const [current, setCurrent] = useState(0);
   const [dragPx, setDragPx] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [settling, setSettling] = useState(false);
   const touch = useRef({ x: 0, y: 0, horizontal: null as boolean | null });
 
   /* Continuous progress — float during drag, integer when settled */
@@ -85,6 +86,8 @@ export function CoinCarousel({ chains, loading, onChainSelect }: Props) {
       const threshold = W / 4;
       if (dragPx < -threshold && current < chains.length - 1) snapTo(current + 1);
       else if (dragPx > threshold && current > 0) snapTo(current - 1);
+      setSettling(true);
+      setTimeout(() => setSettling(false), 450);
     }
     setDragging(false);
     setDragPx(0);
@@ -101,7 +104,9 @@ export function CoinCarousel({ chains, loading, onChainSelect }: Props) {
 
   const transition = dragging
     ? 'none'
-    : 'transform 0.4s cubic-bezier(0.25,1,0.5,1), opacity 0.3s ease';
+    : settling
+      ? 'transform 0.4s cubic-bezier(0.25,1,0.5,1), opacity 0.3s ease'
+      : 'none';
 
   return (
     <div

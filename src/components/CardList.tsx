@@ -28,6 +28,7 @@ const DESIGNS = [
 /* ── Holographic gyroscope card — dot-grid with shifting gradient ── */
 function HolographicBg() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const tiltRef = useRef({ x: 0, y: 0 });
   const smoothTilt = useRef({ x: 0, y: 0 });
   const rafId = useRef<number>(0);
@@ -38,6 +39,12 @@ function HolographicBg() {
     const ctx = c.getContext('2d');
     if (!ctx) return;
     let hasGyro = false;
+    let visible = true;
+
+    /* Pause canvas when off-screen */
+    const wrap = wrapRef.current;
+    const obs = wrap ? new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0 }) : null;
+    if (wrap && obs) obs.observe(wrap);
 
     /* Gyroscope handler (mobile) */
     const handleOrientation = (e: DeviceOrientationEvent) => {
@@ -59,6 +66,7 @@ function HolographicBg() {
     };
 
     function draw() {
+      if (!visible) { rafId.current = requestAnimationFrame(draw); return; }
       const s = smoothTilt.current;
       s.x += (tiltRef.current.x - s.x) * 0.08;
       s.y += (tiltRef.current.y - s.y) * 0.08;
@@ -141,6 +149,7 @@ function HolographicBg() {
 
     return () => {
       cancelAnimationFrame(rafId.current);
+      obs?.disconnect();
       window.removeEventListener('deviceorientation', handleOrientation);
       window.removeEventListener('mousemove', handleMouse);
     };
@@ -150,7 +159,7 @@ function HolographicBg() {
   const cutoutMask = 'radial-gradient(circle at 50% 0, transparent 3.5%, black 4%), radial-gradient(circle at 50% 100%, transparent 3.5%, black 4%)';
 
   return (
-    <div style={{
+    <div ref={wrapRef} style={{
       position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden",
       WebkitMaskImage: cutoutMask,
       maskImage: cutoutMask,
@@ -176,9 +185,13 @@ function DynamicMesh() {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const c = ref.current; if (!c) return; const ctx = c.getContext("2d"); if (!ctx) return; let frame: number;
+    let visible = true;
+    const obs = new IntersectionObserver(([e]) => { visible = e.isIntersecting; }, { threshold: 0 });
+    obs.observe(c);
     const cols = ["#a78bfa", "#f472b6", "#38bdf8", "#34d399", "#fbbf24"];
     const blobs = cols.map((color, i) => ({ color, x: 0.15 + 0.7 * Math.random(), y: 0.15 + 0.7 * Math.random(), vx: (0.001 + Math.random() * 0.002) * (i % 2 ? 1 : -1), vy: (0.001 + Math.random() * 0.002) * (i % 2 ? -1 : 1), r: 0.3 + Math.random() * 0.2 }));
     function draw() {
+      if (!visible) { frame = requestAnimationFrame(draw); return; }
       const w = (c!.width = c!.offsetWidth * 2), h = (c!.height = c!.offsetHeight * 2);
       ctx!.fillStyle = "#1a1030"; ctx!.fillRect(0, 0, w, h);
       blobs.forEach(b => {
@@ -188,7 +201,7 @@ function DynamicMesh() {
         ctx!.globalCompositeOperation = "lighter"; ctx!.fillStyle = g; ctx!.fillRect(0, 0, w, h);
       });
       ctx!.globalCompositeOperation = "source-over"; frame = requestAnimationFrame(draw);
-    } draw(); return () => cancelAnimationFrame(frame);
+    } draw(); return () => { cancelAnimationFrame(frame); obs.disconnect(); };
   }, []);
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />;
 }
@@ -252,8 +265,8 @@ function HideableNumber({
               justifyContent: 'center',
               transform: isActive ? 'translateY(100%)' : 'translateY(0)',
               opacity: isActive ? 0 : 1,
-              filter: isActive ? 'blur(4px)' : 'blur(0px)',
-              transition: `transform 0.35s cubic-bezier(0.25,1,0.5,1) ${delay}ms, opacity 0.3s ease ${delay}ms, filter 0.3s ease ${delay}ms`,
+              willChange: 'transform, opacity',
+              transition: `transform 0.35s cubic-bezier(0.25,1,0.5,1) ${delay}ms, opacity 0.3s ease ${delay}ms`,
             }}>
               {hc}
             </span>
@@ -266,8 +279,8 @@ function HideableNumber({
               justifyContent: 'center',
               transform: isActive ? 'translateY(0)' : 'translateY(-100%)',
               opacity: isActive ? 1 : 0,
-              filter: isActive ? 'blur(0px)' : 'blur(4px)',
-              transition: `transform 0.35s cubic-bezier(0.25,1,0.5,1) ${delay}ms, opacity 0.3s ease ${delay}ms, filter 0.3s ease ${delay}ms`,
+              willChange: 'transform, opacity',
+              transition: `transform 0.35s cubic-bezier(0.25,1,0.5,1) ${delay}ms, opacity 0.3s ease ${delay}ms`,
             }}>
               {rc}
             </span>
@@ -363,7 +376,7 @@ function CardVisual({
   return (
     <div style={{ aspectRatio: "360/227", position: "relative", borderRadius: 12, overflow: "hidden", background: "#2A292D", boxShadow: "0 2px 8px rgba(0,0,0,.18), 0 8px 24px rgba(0,0,0,.22), 0 16px 48px rgba(0,0,0,.16)", userSelect: "none" }}>
       {/* Background */}
-      <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%", filter: isFrozen ? "brightness(.85) saturate(0.3)" : "none", transition: "filter .5s" }}>
+      <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
         {isDyn
           ? <DynamicMesh />
           : isHolo
@@ -372,6 +385,9 @@ function CardVisual({
               ? <img src={d.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               : <div style={{ position: "absolute", inset: "-20%", width: "140%", height: "140%", background: d.bg, transform: "rotate(" + (ph * 15) + "deg)", transition: "transform .3s linear" }} />}
       </div>
+      {/* Frozen desaturation — GPU-composited opacity instead of filter */}
+      <div style={{ position: "absolute", inset: 0, background: "rgba(140,160,180,0.45)", mixBlendMode: "saturation", pointerEvents: "none", opacity: isFrozen ? 1 : 0, transition: "opacity .5s" }} />
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", pointerEvents: "none", opacity: isFrozen ? 1 : 0, transition: "opacity .5s" }} />
       {/* Frozen overlay — icy frost frame + badge */}
       {isFrozen && (
         <>
@@ -396,8 +412,10 @@ function CardVisual({
       )}
       {/* Frosted border */}
       <div style={{ position: "absolute", inset: 0, borderRadius: 12, pointerEvents: "none", borderTop: "1px solid rgba(255,255,255,.45)", borderLeft: "1px solid rgba(255,255,255,.15)", borderRight: "1px solid rgba(255,255,255,.1)", borderBottom: "1px solid rgba(255,255,255,.05)" }} />
-      {/* Holographic shimmer */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "linear-gradient(110deg, transparent 35%, rgba(255,255,255,.12) 48%, rgba(255,255,255,.18) 50%, rgba(255,255,255,.12) 52%, transparent 65%)", backgroundSize: "300% 100%", backgroundPosition: (ph * 300) + "% 0" }} />
+      {/* Holographic shimmer — transform-based for GPU compositing */}
+      <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: 12 }}>
+        <div style={{ position: "absolute", top: 0, left: "-200%", width: "400%", height: "100%", background: "linear-gradient(110deg, transparent 35%, rgba(255,255,255,.12) 48%, rgba(255,255,255,.18) 50%, rgba(255,255,255,.12) 52%, transparent 65%)", transform: `translateX(${ph * 100}%)`, willChange: "transform" }} />
+      </div>
       {/* Content */}
       <div style={{ position: "absolute", inset: 0, padding: "20px 24px", display: "flex", flexDirection: "column", filter: isFrozen ? "blur(6px)" : "none", transition: "filter .5s" }}>
         {/* Header: VIRTUAL / PLATA — hidden when peeking in stack */}

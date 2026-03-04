@@ -50,7 +50,7 @@ export function CoinDrawer({ open, chain, address, onClose }: Props) {
       onClick={onClose}
     >
       <div
-        className={`relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-zinc-950 px-5 pb-12 pt-5 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${open ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-zinc-950 px-5 pb-12 pt-5 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] will-change-transform ${open ? 'translate-y-0' : 'translate-y-full'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glow orbs */}
