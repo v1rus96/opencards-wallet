@@ -38,30 +38,45 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
   const [loading, setLoading] = useState(true);
   const [scanProgress, setScanProgress] = useState(0);
 
-  // Logarithmic slider helpers: maps 0–1000 slider ticks to $20–$10,000
-  const SLIDER_MIN = 20;
-  const SLIDER_MAX = 10000;
+  // Piecewise slider: more space for lower values, less for higher
+  // $20–$200 → 50% of track, $200–$1000 → 30%, $1000–$10000 → 20%
   const SLIDER_TICKS = 1000;
-  const logMin = Math.log(SLIDER_MIN);
-  const logMax = Math.log(SLIDER_MAX);
+  const BREAKPOINTS = [
+    { dollar: 20,    tick: 0 },
+    { dollar: 200,   tick: 500 },
+    { dollar: 1000,  tick: 800 },
+    { dollar: 10000, tick: 1000 },
+  ];
 
   const sliderToAmount = useCallback((tick: number): number => {
-    const t = tick / SLIDER_TICKS; // 0–1
-    return Math.round(Math.exp(logMin + t * (logMax - logMin)));
-  }, [logMin, logMax]);
+    for (let i = 1; i < BREAKPOINTS.length; i++) {
+      const prev = BREAKPOINTS[i - 1];
+      const curr = BREAKPOINTS[i];
+      if (tick <= curr.tick) {
+        const t = (tick - prev.tick) / (curr.tick - prev.tick);
+        return Math.round(prev.dollar + t * (curr.dollar - prev.dollar));
+      }
+    }
+    return BREAKPOINTS[BREAKPOINTS.length - 1].dollar;
+  }, []);
 
   const amountToSlider = useCallback((val: number): number => {
-    const clamped = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, val));
-    return Math.round(((Math.log(clamped) - logMin) / (logMax - logMin)) * SLIDER_TICKS);
-  }, [logMin, logMax]);
+    const clamped = Math.max(20, Math.min(10000, val));
+    for (let i = 1; i < BREAKPOINTS.length; i++) {
+      const prev = BREAKPOINTS[i - 1];
+      const curr = BREAKPOINTS[i];
+      if (clamped <= curr.dollar) {
+        const t = (clamped - prev.dollar) / (curr.dollar - prev.dollar);
+        return Math.round(prev.tick + t * (curr.tick - prev.tick));
+      }
+    }
+    return BREAKPOINTS[BREAKPOINTS.length - 1].tick;
+  }, []);
 
-  // Haptic feedback for slider — fires on every dollar change
+  // Haptic feedback — fire on every value change
   const lastHapticVal = useRef(Number(amount));
   const hapticRef = useRef((val: number) => {
-    const prev = lastHapticVal.current;
-    // Fire haptic at meaningful boundaries based on value range
-    const boundary = val < 100 ? 5 : val < 500 ? 25 : val < 2000 ? 50 : 100;
-    if (Math.floor(prev / boundary) !== Math.floor(val / boundary)) {
+    if (val !== lastHapticVal.current) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const wa = (window as any).Telegram?.WebApp;
@@ -246,8 +261,8 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
               style={{ '--val': `${(amountToSlider(Number(amount)) / SLIDER_TICKS) * 100}%` } as React.CSSProperties}
             />
             <div className="mt-2 flex justify-between text-xs text-zinc-500">
-              <span>${SLIDER_MIN}</span>
-              <span>${SLIDER_MAX.toLocaleString()}</span>
+              <span>$20</span>
+              <span>$10,000</span>
             </div>
           </div>
 
