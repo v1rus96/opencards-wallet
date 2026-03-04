@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { ChevronLeft, Loader2, CheckCircle2, XCircle, Wallet, ArrowDownLeft } from 'lucide-react';
 import { TokenUSDC } from '@web3icons/react';
 import { getPaymentWalletBalance, depositCard } from '@/lib/payment';
 
 import { CardOrder } from '@/types';
+import { SlidingNumber } from '@/components/SlidingNumber';
 
 export interface DrawerAction {
   label: string;
@@ -29,6 +30,60 @@ export function DepositCard({ card, onBack, onSuccess, onActionButton }: Props) 
   const [walletBalance, setWalletBalance] = useState({ solana: 0, base: 0 });
   const [result, setResult] = useState<{ error?: string } | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Piecewise slider: more space for lower values
+  const SLIDER_TICKS = 1000;
+  const BREAKPOINTS = [
+    { dollar: 20,    tick: 0 },
+    { dollar: 200,   tick: 500 },
+    { dollar: 1000,  tick: 800 },
+    { dollar: 10000, tick: 1000 },
+  ];
+
+  const sliderToAmount = useCallback((tick: number): number => {
+    for (let i = 1; i < BREAKPOINTS.length; i++) {
+      const prev = BREAKPOINTS[i - 1];
+      const curr = BREAKPOINTS[i];
+      if (tick <= curr.tick) {
+        const t = (tick - prev.tick) / (curr.tick - prev.tick);
+        return Math.round(prev.dollar + t * (curr.dollar - prev.dollar));
+      }
+    }
+    return BREAKPOINTS[BREAKPOINTS.length - 1].dollar;
+  }, []);
+
+  const amountToSlider = useCallback((val: number): number => {
+    const clamped = Math.max(20, Math.min(10000, val));
+    for (let i = 1; i < BREAKPOINTS.length; i++) {
+      const prev = BREAKPOINTS[i - 1];
+      const curr = BREAKPOINTS[i];
+      if (clamped <= curr.dollar) {
+        const t = (clamped - prev.dollar) / (curr.dollar - prev.dollar);
+        return Math.round(prev.tick + t * (curr.tick - prev.tick));
+      }
+    }
+    return BREAKPOINTS[BREAKPOINTS.length - 1].tick;
+  }, []);
+
+  const lastHapticVal = useRef(Number(amount));
+  const hapticRef = useRef((val: number) => {
+    if (val !== lastHapticVal.current) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const wa = (window as any).Telegram?.WebApp;
+        wa?.HapticFeedback?.selectionChanged?.();
+      } catch { /* */ }
+    }
+    lastHapticVal.current = val;
+  });
+
+  const hapticTick = useCallback(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const wa = (window as any).Telegram?.WebApp;
+      wa?.HapticFeedback?.impactOccurred?.('light');
+    } catch { /* */ }
+  }, []);
 
   useEffect(() => {
     getPaymentWalletBalance()
@@ -112,32 +167,49 @@ export function DepositCard({ card, onBack, onSuccess, onActionButton }: Props) 
             Current balance: ${card.liveBalance.toFixed(2)}
           </p>
 
-          <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-2xl text-zinc-500">$</span>
-              <input
-                type="number"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                className="w-32 border-none bg-transparent font-mono text-center text-4xl font-extrabold text-white outline-none"
-                min={1}
-                autoFocus
-              />
+          {/* Amount display */}
+          <div className="mb-6 text-center">
+            <span className="font-mono text-5xl font-extrabold text-white">$<SlidingNumber value={Number(amount)} /></span>
+          </div>
+
+          {/* Slider */}
+          <div className="mb-3 px-1">
+            <input
+              type="range"
+              min={0}
+              max={SLIDER_TICKS}
+              step={1}
+              value={amountToSlider(Number(amount))}
+              onChange={e => {
+                const dollars = sliderToAmount(Number(e.target.value));
+                const str = String(dollars);
+                if (str !== amount) {
+                  setAmount(str);
+                  hapticRef.current(dollars);
+                }
+              }}
+              className="amount-slider w-full"
+              style={{ '--val': `${(amountToSlider(Number(amount)) / SLIDER_TICKS) * 100}%` } as React.CSSProperties}
+            />
+            <div className="mt-2 flex justify-between text-xs text-zinc-500">
+              <span>$20</span>
+              <span>$10,000</span>
             </div>
           </div>
 
+          {/* Quick amounts */}
           <div className="mb-5 flex gap-2">
-            {[10, 25, 50, 100].map(v => (
+            {[25, 50, 100, 500, 1000].map(v => (
               <button
                 key={v}
-                onClick={() => setAmount(String(v))}
-                className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition-all ${
+                onClick={() => { setAmount(String(v)); hapticTick(); }}
+                className={`flex-1 rounded-lg border py-2 text-xs font-semibold transition-all ${
                   amount === String(v)
                     ? 'border-primary/30 bg-primary/10 text-primary'
                     : 'border-zinc-700 bg-zinc-800 text-zinc-400'
                 }`}
               >
-                ${v}
+                ${v >= 1000 ? `${v / 1000}k` : v}
               </button>
             ))}
           </div>

@@ -7,6 +7,7 @@ import { TokenUSDC } from '@web3icons/react';
 import { getProducts, getPaymentWalletBalance, orderCard } from '@/lib/payment';
 import { CardScanAnimation } from '@/components/CardScanAnimation';
 import { OrderCardPreview } from '@/components/OrderCardPreview';
+import { SlidingNumber } from '@/components/SlidingNumber';
 
 
 interface Product {
@@ -238,7 +239,7 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
 
           {/* Amount display */}
           <div className="mb-6 text-center">
-            <span className="font-mono text-5xl font-extrabold text-white">${Number(amount).toLocaleString()}</span>
+            <span className="font-mono text-5xl font-extrabold text-white">$<SlidingNumber value={Number(amount)} /></span>
           </div>
 
           {/* Slider — logarithmic scale for precision at low values */}
