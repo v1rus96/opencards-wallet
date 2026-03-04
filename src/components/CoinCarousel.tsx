@@ -123,7 +123,7 @@ export function CoinCarousel({ chains, loading, onChainSelect }: Props) {
           const off = i - progress;
           const scale = interp(off, [-2, -1, 0, 1, 2], [0.75, 0.85, 1.0, 1.15, 1.15]);
           const ty    = interp(off, [-2, -1, 0, 1, 2], [55,   30,   0,  -80,  -80]);
-          const op    = interp(off, [-2, -1, 0, 1, 2], [0.3,  0.7,  1.0, 0,    0]);
+          const op    = interp(off, [-2, -1, 0, 1, 2], [1.0,  1.0,  1.0, 0,    0]);
           const rotX  = interp(off, [-2, -1, 0, 1, 2], [35,   20,   0,   0,    0]);
           const active = Math.abs(off) < 0.5;
 
