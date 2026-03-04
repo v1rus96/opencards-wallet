@@ -29,7 +29,8 @@ export function useSafeArea(): SafeAreaInsets {
       top = wa.platform === 'ios' ? 100 : 80;
     }
 
-    setInsets({ top, bottom: (device.bottom || 0) + (content.bottom || 0) });
+    const bottom = (device.bottom || 0) + (content.bottom || 0);
+    setInsets(prev => (prev.top === top && prev.bottom === bottom) ? prev : { top, bottom });
   }, []);
 
   useEffect(() => {

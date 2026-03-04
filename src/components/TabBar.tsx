@@ -168,16 +168,18 @@ export function TabBar({ active, onSelect, bottomInset, actionButton, morphedBut
         justifyContent: 'center',
         paddingBottom: Math.max(8, bottomInset),
         paddingLeft: 16,
-        paddingRight: 16,
+        paddingRight: (!isMorphed && actionButton) ? 94 : 16,
         pointerEvents: 'none',
+        transition: 'padding-right 300ms cubic-bezier(0.33, 1, 0.68, 1)',
       }}
     >
-      {/* Row: nav pill + optional action button */}
+      {/* Row: nav pill + positioned buttons */}
       <div
         style={{
+          position: 'relative',
           display: 'flex',
           alignItems: 'center',
-          gap: ((!isMorphed && actionButton) || hasBack) ? 10 : 0,
+          gap: hasBack ? 10 : 0,
           width: '100%',
           maxWidth: 480,
           justifyContent: 'center',
@@ -245,7 +247,7 @@ export function TabBar({ active, onSelect, bottomInset, actionButton, morphedBut
           WebkitBackdropFilter: 'blur(30px)',
           background: isMorphed ? PRIMARY : 'linear-gradient(to bottom, rgba(0,0,0,0.16), rgba(0,0,0,0.04))',
           pointerEvents: 'auto',
-          transition: 'max-width 300ms cubic-bezier(0.33, 1, 0.68, 1), flex 300ms cubic-bezier(0.33, 1, 0.68, 1), background 300ms ease',
+          transition: 'background 300ms ease',
         }}
       >
         {/* Canvas for animated gradient borders */}
@@ -361,51 +363,44 @@ export function TabBar({ active, onSelect, bottomInset, actionButton, morphedBut
         </button>
       </div>
 
-      {/* Action button wrapper — animates width for smooth layout shift */}
+      {/* Action button — absolutely positioned, doesn't affect pill width */}
       <div
         style={{
-          width: (!isMorphed && actionButton) ? 68 : 0,
+          position: 'absolute',
+          right: -78,
+          top: 0,
+          width: 68,
           height: 68,
-          flexShrink: 0,
-          overflow: 'visible',
-          transition: 'width 300ms cubic-bezier(0.33, 1, 0.68, 1)',
+          borderRadius: 34,
+          padding: 1.5,
+          background: 'linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.2))',
+          transform: (!isMorphed && actionButton) ? 'scale(1)' : 'scale(0)',
+          opacity: (!isMorphed && actionButton) ? 1 : 0,
+          transition: 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease',
+          pointerEvents: (!isMorphed && actionButton) ? 'auto' : 'none',
         }}
       >
-        {/* Glassmorphic circle — gradient border via background trick */}
-        <div
+        <button
+          onClick={actionButton?.onClick}
           style={{
-            width: 68,
-            height: 68,
-            borderRadius: 34,
-            padding: 1.5,
-            background: 'linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.2))',
-            transform: (!isMorphed && actionButton) ? 'scale(1)' : 'scale(0)',
-            opacity: (!isMorphed && actionButton) ? 1 : 0,
-            transition: 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease',
+            width: '100%',
+            height: '100%',
+            borderRadius: 32.5,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            pointerEvents: 'auto',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            background: 'linear-gradient(to bottom, rgba(0,0,0,0.16), rgba(0,0,0,0.04))',
+            WebkitTapHighlightColor: 'transparent',
           }}
         >
-          <button
-            onClick={actionButton?.onClick}
-            style={{
-              width: '100%',
-              height: '100%',
-              borderRadius: 32.5,
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              pointerEvents: 'auto',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              background: 'linear-gradient(to bottom, rgba(0,0,0,0.16), rgba(0,0,0,0.04))',
-              WebkitTapHighlightColor: 'transparent',
-            }}
-          >
-            {actionButton?.icon}
-          </button>
-        </div>
+          {actionButton?.icon}
+        </button>
       </div>
       </div>
     </div>

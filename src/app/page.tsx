@@ -28,7 +28,7 @@ import { Separator } from '@/components/ui/separator';
 
 const TransactionHistory = dynamic(() => import('@/components/TransactionHistory').then(m => m.TransactionHistory), { ssr: false });
 
-type View = 'main' | 'order' | 'deposit' | 'setup';
+type View = 'main' | 'setup';
 
 export default function Home() {
   const safeArea = useSafeArea();
@@ -42,6 +42,7 @@ export default function Home() {
   const [selectedChain, setSelectedChain] = useState<import('@/types').ChainBalance | null>(null);
   const [isCoinDrawerOpen, setIsCoinDrawerOpen] = useState(false);
   const [addresses, setAddresses] = useState({ sol: '', evm: '' });
+  const [isOrderOpen, setIsOrderOpen] = useState(false);
   const [drawerAction, setDrawerAction] = useState<DrawerAction | null>(null);
 
   useEffect(() => {
@@ -128,10 +129,6 @@ export default function Home() {
               )}
             </div>
 
-            {view === 'order' && (
-              <OrderCard onBack={() => setView('main')} onSuccess={handleOrderSuccess} />
-            )}
-
             {view === 'main' && (
               <>
                 {activeTab === 'overview' && (
@@ -205,7 +202,7 @@ export default function Home() {
                     <div className="mb-3 flex items-center justify-between">
                       <p className="section-title !mt-0 !mb-0">Virtual Cards ({cards.length})</p>
                       <Button
-                        onClick={() => { setView('order'); haptic('medium'); }}
+                        onClick={() => { setIsOrderOpen(true); haptic('medium'); }}
                         size="sm"
                         className="gap-1.5 rounded-lg text-xs font-bold active:scale-95"
                       >
@@ -304,7 +301,7 @@ export default function Home() {
           bottomInset={safeArea.bottom}
           actionButton={activeTab === 'cards' && view === 'main' ? {
             icon: <Plus size={24} strokeWidth={2.5} />,
-            onClick: () => { setView('order'); haptic('medium'); },
+            onClick: () => { setIsOrderOpen(true); haptic('medium'); },
           } : undefined}
           morphedButton={drawerAction ? {
             label: drawerAction.label,
@@ -345,6 +342,27 @@ export default function Home() {
               onBack={() => { setIsDepositOpen(false); setTimeout(() => setDepositCard(null), 300); }}
               onSuccess={() => { handleOrderSuccess(); setIsDepositOpen(false); setTimeout(() => setDepositCard(null), 300); }}
               onActionButton={isDepositOpen ? setDrawerAction : undefined}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Order Card Bottom Sheet Overlay */}
+      <div
+        className={`fixed inset-0 z-40 flex flex-col justify-end transition-all duration-300 ${isOrderOpen ? 'visible bg-black/60' : 'invisible bg-transparent'}`}
+        onClick={() => setIsOrderOpen(false)}
+      >
+        <div
+          className={`relative max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-zinc-950 px-4 pb-28 pt-6 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isOrderOpen ? 'translate-y-0' : 'translate-y-full'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-zinc-800" />
+
+          {isOrderOpen && (
+            <OrderCard
+              onBack={() => setIsOrderOpen(false)}
+              onSuccess={() => { handleOrderSuccess(); setIsOrderOpen(false); }}
+              onActionButton={isOrderOpen ? setDrawerAction : undefined}
             />
           )}
         </div>

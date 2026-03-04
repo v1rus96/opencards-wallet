@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { DrawerAction } from '@/components/DepositCard';
 import { CreditCard, ChevronLeft, Loader2, CheckCircle2, XCircle, Wallet } from 'lucide-react';
 import { TokenUSDC } from '@web3icons/react';
 import { getProducts, getPaymentWalletBalance, orderCard } from '@/lib/payment';
+import { CardScanAnimation } from '@/components/CardScanAnimation';
+import { OrderCardPreview } from '@/components/OrderCardPreview';
 
 
 interface Product {
@@ -20,11 +23,12 @@ interface Product {
 interface Props {
   onBack: () => void;
   onSuccess: () => void;
+  onActionButton?: (action: DrawerAction | null) => void;
 }
 
 type Step = 'product' | 'amount' | 'confirm' | 'processing' | 'success' | 'error';
 
-export function OrderCard({ onBack, onSuccess }: Props) {
+export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
   const [step, setStep] = useState<Step>('product');
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -32,6 +36,16 @@ export function OrderCard({ onBack, onSuccess }: Props) {
   const [walletBalance, setWalletBalance] = useState({ solana: 0, base: 0 });
   const [result, setResult] = useState<{ order?: { id: string; last4?: string }; error?: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scanProgress, setScanProgress] = useState(0);
+
+  // Map steps to scan progress — CardScanAnimation handles smooth interpolation
+  const stepProgress: Record<Step, number> = {
+    product: 0, amount: 33, confirm: 66, processing: 90, success: 100, error: 66,
+  };
+
+  useEffect(() => {
+    setScanProgress(stepProgress[step]);
+  }, [step]);
 
   useEffect(() => {
     let mounted = true;
@@ -79,6 +93,38 @@ export function OrderCard({ onBack, onSuccess }: Props) {
     }
   };
 
+  // Expose current action to parent (for morphed nav button)
+  const performRef = useRef<() => void>(() => {});
+  if (step === 'product') performRef.current = onBack;
+  else if (step === 'amount') performRef.current = () => setStep('confirm');
+  else if (step === 'confirm') performRef.current = handleConfirm;
+  else if (step === 'success') performRef.current = () => { onSuccess(); onBack(); };
+  else if (step === 'error') performRef.current = () => setStep('confirm');
+  else performRef.current = () => {};
+
+  useEffect(() => {
+    if (!onActionButton) return;
+    const labels: Record<string, string> = {
+      product: 'Cancel', amount: 'Continue', confirm: 'Pay & Order', success: 'Done', error: 'Try Again',
+    };
+    const label = labels[step];
+    if (!label) { onActionButton(null); return; }
+    const backActions: Record<string, (() => void) | undefined> = {
+      amount: () => setStep('product'),
+      confirm: () => setStep('amount'),
+      error: () => setStep('confirm'),
+    };
+    onActionButton({
+      label,
+      disabled: step === 'amount'
+        ? !amount || parseFloat(amount) < Number(selectedProduct?.depositMin || '0')
+        : step === 'confirm' ? !canAfford : false,
+      perform: () => performRef.current(),
+      onBack: backActions[step],
+    });
+    return () => onActionButton(null);
+  }, [step, amount, canAfford, onActionButton, selectedProduct]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -90,9 +136,18 @@ export function OrderCard({ onBack, onSuccess }: Props) {
   return (
     <div>
       {/* Header */}
-      <button onClick={onBack} className="mb-4 flex items-center gap-1 text-sm text-zinc-400 active:text-white">
-        <ChevronLeft size={16} /> Back
-      </button>
+      {!onActionButton && (
+        <button onClick={onBack} className="mb-4 flex items-center gap-1 text-sm text-zinc-400 active:text-white">
+          <ChevronLeft size={16} /> Back
+        </button>
+      )}
+
+      {/* Card scan progress indicator */}
+      <div className="mx-auto mb-5 w-3/4">
+        <CardScanAnimation progress={scanProgress}>
+          <OrderCardPreview />
+        </CardScanAnimation>
+      </div>
 
       {/* Step: Select Product */}
       {step === 'product' && (
@@ -160,13 +215,15 @@ export function OrderCard({ onBack, onSuccess }: Props) {
             ))}
           </div>
 
-          <button
-            onClick={() => setStep('confirm')}
-            disabled={!amount || parseFloat(amount) < Number(selectedProduct.depositMin)}
-            className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
-          >
-            Continue
-          </button>
+          {!onActionButton && (
+            <button
+              onClick={() => setStep('confirm')}
+              disabled={!amount || parseFloat(amount) < Number(selectedProduct.depositMin)}
+              className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
+            >
+              Continue
+            </button>
+          )}
         </div>
       )}
 
@@ -243,21 +300,23 @@ export function OrderCard({ onBack, onSuccess }: Props) {
             )}
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setStep('amount')}
-              className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
-            >
-              Back
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={!canAfford}
-              className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
-            >
-              Pay & Order
-            </button>
-          </div>
+          {!onActionButton && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStep('amount')}
+                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={!canAfford}
+                className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
+              >
+                Pay & Order
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -278,12 +337,14 @@ export function OrderCard({ onBack, onSuccess }: Props) {
           <p className="mt-1 text-sm text-zinc-400">
             {result?.order?.last4 ? `•••• ${result.order.last4}` : 'Provisioning...'}
           </p>
-          <button
-            onClick={() => { onSuccess(); onBack(); }}
-            className="mt-6 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
-          >
-            Done
-          </button>
+          {!onActionButton && (
+            <button
+              onClick={() => { onSuccess(); onBack(); }}
+              className="mt-6 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
+            >
+              Done
+            </button>
+          )}
         </div>
       )}
 
@@ -293,12 +354,14 @@ export function OrderCard({ onBack, onSuccess }: Props) {
           <XCircle size={48} className="mx-auto text-red-400" />
           <p className="mt-4 text-lg font-bold text-white">Order Failed</p>
           <p className="mt-1 text-sm text-zinc-400">{result?.error}</p>
-          <button
-            onClick={() => setStep('confirm')}
-            className="mt-6 rounded-xl border border-zinc-700 bg-zinc-800 px-8 py-3 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
-          >
-            Try Again
-          </button>
+          {!onActionButton && (
+            <button
+              onClick={() => setStep('confirm')}
+              className="mt-6 rounded-xl border border-zinc-700 bg-zinc-800 px-8 py-3 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
+            >
+              Try Again
+            </button>
+          )}
         </div>
       )}
     </div>

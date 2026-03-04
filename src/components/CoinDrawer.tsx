@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Copy, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
 import { NetworkSolana, NetworkEthereum, TokenUSDC } from '@web3icons/react';
 import QRCode from 'react-qr-code';
@@ -40,15 +40,16 @@ export function CoinDrawer({ open, chain, address, onClose, onActionButton }: Pr
   const [sendAddress, setSendAddress] = useState('');
   const [sendAmount, setSendAmount] = useState('');
 
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!onActionButton) return;
     if (open) {
-      onActionButton({ label: 'Done', disabled: false, perform: onClose });
-    } else {
-      onActionButton(null);
+      onActionButton({ label: 'Done', disabled: false, perform: () => onCloseRef.current() });
     }
     return () => onActionButton(null);
-  }, [open, onClose, onActionButton]);
+  }, [open, onActionButton]);
 
   if (!chain) return null;
 
