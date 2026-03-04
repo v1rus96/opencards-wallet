@@ -290,13 +290,14 @@ function CardVisual({
         {/* Header: VIRTUAL / PLATA — hidden when peeking in stack */}
         {!isPeeking && (
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <span style={{ fontFamily: f1, fontSize: 12, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: labelTs, opacity: .8 }}>VIRTUAL</span>
             <button
               onPointerUp={(e) => { e.stopPropagation(); setDesignIdx(i => (i + 1) % DESIGNS.length); }}
-              style={{ background: "none", border: "none", cursor: "pointer", padding: "2px 4px", fontFamily: f1, fontSize: 16, fontWeight: 800, letterSpacing: 3, color: tc, textShadow: ts, lineHeight: 1 }}
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 0, lineHeight: 1, display: "flex", alignItems: "center", gap: 6 }}
             >
-              PLATA
+              <svg width="20" height="18" viewBox="27 37 168 150" style={{ display: "block", opacity: .85, filter: mcF }}><path d="m34.14 171.15c24.48-24.55 48.69-48.87 72.96-73.14 2.35-2.35 4.17-4.82 1.31-7.66-3.02-2.99-5.48-0.53-7.64 1.64-17.64 17.69-35.25 35.41-52.88 53.11-2.35 2.36-4.62 4.83-7.17 6.95-1.43 1.19-3.94 2.89-4.94 2.37-1.5-0.78-2.74-3.21-3-5.08-4.05-29.74 2.44-55.62 27.75-74.45 10-7.45 19.94-14.97 29.99-22.36 9.4-6.91 19.83-9.74 31.54-8.09 3.49 0.5 7.28 0.18 10.74-0.59 18.13-4.07 36.29-4.54 54.52-1 1.9 0.37 3.58 1.9 5.36 2.89-0.97 1.66-1.66 3.6-2.97 4.92-23.48 23.63-47.04 47.19-70.58 70.76-1.65 1.65-3.26 3.33-4.9 4.99-2.1 2.14-3.13 4.54-0.78 7.01 2.49 2.61 4.78 1.24 6.86-0.85q19.56-19.63 39.12-39.26c7.29-7.32 14.5-14.71 21.85-21.97 4.02-3.97 6.81-3.21 7.63 2.47 4.23 29.37-1.17 55.38-26.52 74.26-10.28 7.66-20.36 15.6-30.67 23.22-9.82 7.25-20.73 10.29-32.97 7.99-2.35-0.44-5-0.31-7.33 0.27-18.54 4.64-37.18 5.36-55.93 1.66-2.08-0.42-3.95-1.89-5.91-2.87 1.08-1.96 2.14-3.93 3.26-5.87 0.24-0.42 0.69-0.72 1.3-1.32z" fill={tc} /></svg>
+              <span style={{ fontFamily: f1, fontSize: 14, fontWeight: 700, color: tc, textShadow: ts, letterSpacing: 0.5 }}>OpenCards</span>
             </button>
+            <span style={{ fontFamily: f1, fontSize: 12, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: labelTs, opacity: .8 }}>VIRTUAL</span>
           </div>
         )}
         <div style={{ flex: 1 }} />

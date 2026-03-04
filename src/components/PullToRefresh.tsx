@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, useEffect, ReactNode } from 'react';
-import { Loader2 } from 'lucide-react';
 
 const THRESHOLD = 64;
 const MAX_PULL = 120;
@@ -111,21 +110,23 @@ export function PullToRefresh({ onRefresh, children }: Props) {
           zIndex: 5,
         }}
       >
-        <div style={{
-          width: 32,
-          height: 32,
-          borderRadius: '50%',
-          background: 'rgba(20,184,166,0.12)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <Loader2
-            size={18}
-            style={{ color: '#2dd4bf' }}
-            className={spinning ? 'animate-spin' : ''}
-          />
-        </div>
+        <img
+          src="/logo (3).svg"
+          alt=""
+          style={{
+            width: 28,
+            height: 28,
+            animation: spinning ? 'logo-pulse 0.8s ease-in-out infinite' : 'none',
+            opacity: spinning ? 1 : 0.7,
+            transition: 'opacity 0.2s ease',
+          }}
+        />
+        <style>{`
+          @keyframes logo-pulse {
+            0%, 100% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.25); opacity: 1; }
+          }
+        `}</style>
       </div>
 
       {/* Content — slides down on pull, covers the spinner at rest */}
