@@ -9,6 +9,7 @@ import { useWalletData } from '@/hooks/useWalletData';
 import { getConfig, clearConfig } from '@/lib/store';
 import { clearAddressCache, freezeCard, unfreezeCard, getAddresses } from '@/lib/api';
 import { ChainGrid } from '@/components/ChainGrid';
+import { CoinCarousel } from '@/components/CoinCarousel';
 import { CardList } from '@/components/CardList';
 import { SpendingBudget } from '@/components/SpendingBudget';
 import { CoinDrawer } from '@/components/CoinDrawer';
@@ -176,6 +177,16 @@ export default function Home() {
                       chains={chains}
                       loading={loading}
                       horizontal
+                      onChainSelect={(chain) => {
+                        setSelectedChain(chain);
+                        setIsCoinDrawerOpen(true);
+                        haptic('medium');
+                      }}
+                    />
+
+                    <CoinCarousel
+                      chains={chains}
+                      loading={loading}
                       onChainSelect={(chain) => {
                         setSelectedChain(chain);
                         setIsCoinDrawerOpen(true);

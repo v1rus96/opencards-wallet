@@ -196,6 +196,88 @@ function DynamicMesh() {
 /* ── Format card PAN: "1234567890123456" → "1234 5678 9012 3456" ── */
 function fmtNum(n: string) { return n.replace(/(.{4})/g, "$1 ").trim(); }
 
+/* ── Staggered reveal / hide animation for card details ─────────── */
+function HideableNumber({
+  hiddenText,
+  revealedText,
+  revealed,
+  gap = 0,
+  style,
+}: {
+  hiddenText: string;
+  revealedText: string | null;
+  revealed: boolean;
+  gap?: number;
+  style?: React.CSSProperties;
+}) {
+  const rText = revealedText || hiddenText;
+  const len = Math.max(hiddenText.length, rText.length);
+  const isActive = revealed && revealedText != null;
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap, ...style }}>
+      {Array.from({ length: len }).map((_, i) => {
+        const hc = hiddenText[i] || '';
+        const rc = rText[i] || '';
+
+        if (hc === ' ' || rc === ' ') {
+          return <span key={i} style={{ width: '0.6em' }} />;
+        }
+
+        /* Skip animation for characters that are identical (e.g. last 4 digits) */
+        if (hc === rc) {
+          return (
+            <span key={i} style={{ display: 'inline-flex', width: '1ch', height: '1.4em', alignItems: 'center', justifyContent: 'center' }}>
+              {hc}
+            </span>
+          );
+        }
+
+        const delay = i * 25;
+
+        return (
+          <span key={i} style={{
+            display: 'inline-flex',
+            width: '1ch',
+            height: '1.4em',
+            overflow: 'hidden',
+            position: 'relative',
+          }}>
+            <span style={{
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: isActive ? 'translateY(100%)' : 'translateY(0)',
+              opacity: isActive ? 0 : 1,
+              filter: isActive ? 'blur(4px)' : 'blur(0px)',
+              transition: `transform 0.35s cubic-bezier(0.25,1,0.5,1) ${delay}ms, opacity 0.3s ease ${delay}ms, filter 0.3s ease ${delay}ms`,
+            }}>
+              {hc}
+            </span>
+            <span style={{
+              position: 'absolute',
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transform: isActive ? 'translateY(0)' : 'translateY(-100%)',
+              opacity: isActive ? 1 : 0,
+              filter: isActive ? 'blur(0px)' : 'blur(4px)',
+              transition: `transform 0.35s cubic-bezier(0.25,1,0.5,1) ${delay}ms, opacity 0.3s ease ${delay}ms, filter 0.3s ease ${delay}ms`,
+            }}>
+              {rc}
+            </span>
+          </span>
+        );
+      })}
+    </span>
+  );
+}
+
 /* ── Single card visual — exact plata-card-v3 Card component ─────── */
 function CardVisual({
   card,
@@ -268,14 +350,14 @@ function CardVisual({
     : "drop-shadow(0px 1px 0px rgba(255,255,255,.8)) drop-shadow(0px -1px 0px rgba(0,0,0,.15))";
 
   /* card data */
-  const cardNumber = isRevealed && sensitive
-    ? sensitive.card_number
-    : `\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022${card.last4 || '\u2022\u2022\u2022\u2022'}`;
-  const rawExpiry = isRevealed && sensitive ? sensitive.expiry : null;
-  const expiryDate = rawExpiry
-    ? rawExpiry.replace(/(\d{2})\/?(\d{2})(\d{2})/, '$1/$3')  // MM/YYYY → MM/YY
-    : '\u2022\u2022/\u2022\u2022';
-  const cvv = isRevealed && sensitive ? sensitive.cvv : '\u2022\u2022\u2022';
+  const hiddenCardNumber = fmtNum(`\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022${card.last4 || '\u2022\u2022\u2022\u2022'}`);
+  const revealedCardNumber = sensitive ? fmtNum(sensitive.card_number) : null;
+  const hiddenExpiry = '\u2022\u2022/\u2022\u2022';
+  const revealedExpiry = sensitive
+    ? sensitive.expiry.replace(/(\d{2})\/?(\d{2})(\d{2})/, '$1/$3')
+    : null;
+  const hiddenCvv = '\u2022\u2022\u2022';
+  const revealedCvv = sensitive ? sensitive.cvv : null;
   const balance = card.liveBalance;
 
   return (
@@ -334,7 +416,7 @@ function CardVisual({
         <div style={{ flex: 1 }} />
         {/* Balance */}
         {balance != null && (
-          <div style={{ marginBottom: showDetails && cardNumber ? 16 : 8, display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ marginBottom: showDetails ? 16 : 8, display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ fontFamily: f2, fontSize: 30, fontWeight: 700, color: tc, textShadow: ts, letterSpacing: -.5 }}>{"$" + balance.toFixed(2)}</span>
             {onDeposit && (
               <button
@@ -347,7 +429,7 @@ function CardVisual({
           </div>
         )}
         {/* Card number + eye toggle + freeze */}
-        {showDetails && cardNumber && (
+        {showDetails && (
           <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             <span
               onPointerUp={(e) => {
@@ -356,8 +438,10 @@ function CardVisual({
                 navigator.clipboard.writeText(sensitive.card_number).catch(() => {});
                 try { (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: { notificationOccurred: (t: string) => void } } } }).Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success'); } catch { /* */ }
               }}
-              style={{ fontFamily: f2, fontSize: 18, fontWeight: 600, letterSpacing: 2.5, color: tc, textShadow: ts, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: isRevealed ? "pointer" : "default" }}
-            >{fmtNum(cardNumber)}</span>
+              style={{ fontFamily: f2, fontSize: 18, fontWeight: 600, color: tc, textShadow: ts, flex: 1, whiteSpace: "nowrap", overflow: "hidden", cursor: isRevealed ? "pointer" : "default" }}
+            >
+              <HideableNumber hiddenText={hiddenCardNumber} revealedText={revealedCardNumber} revealed={isRevealed} gap={2.5} />
+            </span>
             <button
               onPointerUp={(e) => { e.stopPropagation(); handleVis(); }}
               style={{ width: 34, height: 34, borderRadius: "50%", background: dark ? "rgba(255,255,255,.15)" : "rgba(0,0,0,.05)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
@@ -384,8 +468,8 @@ function CardVisual({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
           {showDetails ? (
             <div style={{ display: "flex", gap: 24 }}>
-              {expiryDate && <div><div style={{ fontFamily: f1, fontSize: 8, fontWeight: 700, color: sc, letterSpacing: .5, textShadow: labelTs }}>EXP CHK</div><div style={{ fontFamily: f2, fontSize: 14, fontWeight: 600, letterSpacing: 2, color: tc, textShadow: ts }}>{expiryDate}</div></div>}
-              {cvv && <div><div style={{ fontFamily: f1, fontSize: 8, fontWeight: 700, color: sc, letterSpacing: .5, textShadow: labelTs }}>CVV</div><div style={{ fontFamily: f2, fontSize: 14, fontWeight: 600, letterSpacing: 2, color: tc, textShadow: ts }}>{cvv}</div></div>}
+              <div><div style={{ fontFamily: f1, fontSize: 8, fontWeight: 700, color: sc, letterSpacing: .5, textShadow: labelTs }}>EXP CHK</div><div style={{ fontFamily: f2, fontSize: 14, fontWeight: 600, color: tc, textShadow: ts }}><HideableNumber hiddenText={hiddenExpiry} revealedText={revealedExpiry} revealed={isRevealed} gap={2} /></div></div>
+              <div><div style={{ fontFamily: f1, fontSize: 8, fontWeight: 700, color: sc, letterSpacing: .5, textShadow: labelTs }}>CVV</div><div style={{ fontFamily: f2, fontSize: 14, fontWeight: 600, color: tc, textShadow: ts }}><HideableNumber hiddenText={hiddenCvv} revealedText={revealedCvv} revealed={isRevealed} gap={2} /></div></div>
             </div>
           ) : <div />}
           <svg width="48" height="48" viewBox="0 0 24 24" style={{ display: "block", opacity: .85, marginRight: -6, marginBottom: -8, filter: mcF }}><path d="M12 6.654a6.786 6.786 0 0 1 2.596 5.344A6.786 6.786 0 0 1 12 17.34a6.786 6.786 0 0 1-2.596-5.343A6.786 6.786 0 0 1 12 6.654zm-.87-.582A7.783 7.783 0 0 0 8.4 12a7.783 7.783 0 0 0 2.728 5.926 6.798 6.798 0 1 1 .003-11.854zm1.742 11.854A7.783 7.783 0 0 0 15.6 12a7.783 7.783 0 0 0-2.73-5.928 6.798 6.798 0 1 1 .003 11.854z" fill={tc} /></svg>
