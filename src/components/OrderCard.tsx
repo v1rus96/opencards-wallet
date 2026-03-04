@@ -38,12 +38,29 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
   const [loading, setLoading] = useState(true);
   const [scanProgress, setScanProgress] = useState(0);
 
-  // Haptic feedback for slider — fires on every $50 boundary
+  // Logarithmic slider helpers: maps 0–1000 slider ticks to $20–$10,000
+  const SLIDER_MIN = 20;
+  const SLIDER_MAX = 10000;
+  const SLIDER_TICKS = 1000;
+  const logMin = Math.log(SLIDER_MIN);
+  const logMax = Math.log(SLIDER_MAX);
+
+  const sliderToAmount = useCallback((tick: number): number => {
+    const t = tick / SLIDER_TICKS; // 0–1
+    return Math.round(Math.exp(logMin + t * (logMax - logMin)));
+  }, [logMin, logMax]);
+
+  const amountToSlider = useCallback((val: number): number => {
+    const clamped = Math.max(SLIDER_MIN, Math.min(SLIDER_MAX, val));
+    return Math.round(((Math.log(clamped) - logMin) / (logMax - logMin)) * SLIDER_TICKS);
+  }, [logMin, logMax]);
+
+  // Haptic feedback for slider — fires on every dollar change
   const lastHapticVal = useRef(Number(amount));
   const hapticRef = useRef((val: number) => {
     const prev = lastHapticVal.current;
-    const boundary = 50;
-    // Fire haptic when crossing a $50 boundary
+    // Fire haptic at meaningful boundaries based on value range
+    const boundary = val < 100 ? 5 : val < 500 ? 25 : val < 2000 ? 50 : 100;
     if (Math.floor(prev / boundary) !== Math.floor(val / boundary)) {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -209,27 +226,28 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
             <span className="font-mono text-5xl font-extrabold text-white">${Number(amount).toLocaleString()}</span>
           </div>
 
-          {/* Slider */}
+          {/* Slider — logarithmic scale for precision at low values */}
           <div className="mb-3 px-1">
             <input
               type="range"
-              min={20}
-              max={10000}
+              min={0}
+              max={SLIDER_TICKS}
               step={1}
-              value={Number(amount)}
+              value={amountToSlider(Number(amount))}
               onChange={e => {
-                const v = e.target.value;
-                if (v !== amount) {
-                  setAmount(v);
-                  hapticRef.current(Number(v));
+                const dollars = sliderToAmount(Number(e.target.value));
+                const str = String(dollars);
+                if (str !== amount) {
+                  setAmount(str);
+                  hapticRef.current(dollars);
                 }
               }}
               className="amount-slider w-full"
-              style={{ '--val': `${((Number(amount) - 20) / (10000 - 20)) * 100}%` } as React.CSSProperties}
+              style={{ '--val': `${(amountToSlider(Number(amount)) / SLIDER_TICKS) * 100}%` } as React.CSSProperties}
             />
             <div className="mt-2 flex justify-between text-xs text-zinc-500">
-              <span>$20</span>
-              <span>$10,000</span>
+              <span>${SLIDER_MIN}</span>
+              <span>${SLIDER_MAX.toLocaleString()}</span>
             </div>
           </div>
 
