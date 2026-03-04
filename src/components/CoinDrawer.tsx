@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Copy, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
 import { NetworkSolana, NetworkEthereum, TokenUSDC } from '@web3icons/react';
 import QRCode from 'react-qr-code';
@@ -39,17 +39,36 @@ export function CoinDrawer({ open, chain, address, onClose, onActionButton }: Pr
   const [tab, setTab] = useState<Tab>('receive');
   const [sendAddress, setSendAddress] = useState('');
   const [sendAmount, setSendAmount] = useState('');
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
+  const handleCopy = useCallback(() => {
+    copyToClipboard(address);
+    setCopied(true);
+    if (copiedTimer.current) clearTimeout(copiedTimer.current);
+    copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+  }, [address]);
+
   useEffect(() => {
-    if (!onActionButton) return;
-    if (open) {
-      onActionButton({ label: 'Done', disabled: false, perform: () => onCloseRef.current() });
+    if (!onActionButton || !open) return;
+    if (tab === 'receive') {
+      onActionButton({ label: copied ? 'Copied!' : 'Copy', disabled: false, perform: handleCopy });
+    } else {
+      onActionButton({
+        label: 'Send',
+        disabled: !sendAddress || !sendAmount || parseFloat(sendAmount) <= 0,
+        perform: () => {
+          haptic('medium');
+          const wa = (window as unknown as { Telegram?: { WebApp?: { showAlert?: (m: string) => void } } }).Telegram?.WebApp;
+          wa?.showAlert?.('Send feature coming soon!');
+        },
+      });
     }
     return () => onActionButton(null);
-  }, [open, onActionButton]);
+  }, [open, tab, onActionButton, address, chain, sendAddress, sendAmount, copied, handleCopy]);
 
   if (!chain) return null;
 
@@ -190,18 +209,6 @@ export function CoinDrawer({ open, chain, address, onClose, onActionButton }: Pr
                 {chain.balance.toLocaleString('en-US', { maximumFractionDigits: 6 })} {chain.symbol}
               </button>
             </div>
-
-            <button
-              onClick={() => {
-                haptic('medium');
-                const wa = (window as unknown as { Telegram?: { WebApp?: { showAlert?: (m: string) => void } } }).Telegram?.WebApp;
-                wa?.showAlert?.('Send feature coming soon!');
-              }}
-              disabled={!sendAddress || !sendAmount || parseFloat(sendAmount) <= 0}
-              className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
-            >
-              Send {chain.symbol}
-            </button>
           </div>
         )}
       </div>
