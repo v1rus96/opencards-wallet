@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Copy, ArrowUpRight, ArrowDownLeft, X } from 'lucide-react';
 import { NetworkSolana, NetworkEthereum, TokenUSDC } from '@web3icons/react';
 import QRCode from 'react-qr-code';
@@ -11,6 +11,7 @@ interface Props {
   chain: ChainBalance | null;
   address: string;
   onClose: () => void;
+  onActionButton?: (action: { label: string; disabled: boolean; perform: () => void } | null) => void;
 }
 
 type Tab = 'receive' | 'send';
@@ -34,10 +35,20 @@ function haptic(style: string) {
   wa?.HapticFeedback?.impactOccurred(style);
 }
 
-export function CoinDrawer({ open, chain, address, onClose }: Props) {
+export function CoinDrawer({ open, chain, address, onClose, onActionButton }: Props) {
   const [tab, setTab] = useState<Tab>('receive');
   const [sendAddress, setSendAddress] = useState('');
   const [sendAmount, setSendAmount] = useState('');
+
+  useEffect(() => {
+    if (!onActionButton) return;
+    if (open) {
+      onActionButton({ label: 'Done', disabled: false, perform: onClose });
+    } else {
+      onActionButton(null);
+    }
+    return () => onActionButton(null);
+  }, [open, onClose, onActionButton]);
 
   if (!chain) return null;
 
@@ -46,11 +57,11 @@ export function CoinDrawer({ open, chain, address, onClose }: Props) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col justify-end transition-all duration-300 ${open ? 'visible bg-black/60' : 'invisible bg-transparent'}`}
+      className={`fixed inset-0 z-40 flex flex-col justify-end transition-all duration-300 ${open ? 'visible bg-black/60' : 'invisible bg-transparent'}`}
       onClick={onClose}
     >
       <div
-        className={`relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-zinc-950 px-5 pb-12 pt-5 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] will-change-transform ${open ? 'translate-y-0' : 'translate-y-full'}`}
+        className={`relative max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-zinc-950 px-5 pb-28 pt-5 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] will-change-transform ${open ? 'translate-y-0' : 'translate-y-full'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Glow orbs */}
@@ -73,12 +84,14 @@ export function CoinDrawer({ open, chain, address, onClose }: Props) {
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 transition-all active:scale-90"
-          >
-            <X size={16} />
-          </button>
+          {!onActionButton && (
+            <button
+              onClick={onClose}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 text-zinc-400 transition-all active:scale-90"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
         {/* Tab pills */}

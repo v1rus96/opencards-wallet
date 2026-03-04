@@ -1,21 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, Loader2, CheckCircle2, XCircle, Wallet, ArrowDownLeft } from 'lucide-react';
 import { TokenUSDC } from '@web3icons/react';
 import { getPaymentWalletBalance, depositCard } from '@/lib/payment';
 
 import { CardOrder } from '@/types';
 
+export interface DrawerAction {
+  label: string;
+  disabled: boolean;
+  perform: () => void;
+  onBack?: () => void;
+}
+
 interface Props {
   card: CardOrder & { liveBalance: number };
   onBack: () => void;
   onSuccess: () => void;
+  onActionButton?: (action: DrawerAction | null) => void;
 }
 
 type Step = 'amount' | 'confirm' | 'processing' | 'success' | 'error';
 
-export function DepositCard({ card, onBack, onSuccess }: Props) {
+export function DepositCard({ card, onBack, onSuccess, onActionButton }: Props) {
   const [step, setStep] = useState<Step>('amount');
   const [amount, setAmount] = useState('25');
   const [walletBalance, setWalletBalance] = useState({ solana: 0, base: 0 });
@@ -52,6 +60,34 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
     }
   };
 
+  // Expose current action to parent (for morphed nav button)
+  const performRef = useRef<() => void>(() => {});
+  if (step === 'amount') performRef.current = () => setStep('confirm');
+  else if (step === 'confirm') performRef.current = handleConfirm;
+  else if (step === 'success') performRef.current = () => { onSuccess(); onBack(); };
+  else if (step === 'error') performRef.current = () => setStep('confirm');
+  else performRef.current = () => {};
+
+  useEffect(() => {
+    if (!onActionButton) return;
+    const labels: Record<string, string> = {
+      amount: 'Continue', confirm: 'Pay & Deposit', success: 'Done', error: 'Try Again',
+    };
+    const label = labels[step];
+    if (!label) { onActionButton(null); return; }
+    const backActions: Record<string, (() => void) | undefined> = {
+      confirm: () => setStep('amount'),
+      error: () => setStep('confirm'),
+    };
+    onActionButton({
+      label,
+      disabled: step === 'amount' ? depositAmount <= 0 : step === 'confirm' ? !canAfford : false,
+      perform: () => performRef.current(),
+      onBack: backActions[step],
+    });
+    return () => onActionButton(null);
+  }, [step, depositAmount, canAfford, onActionButton]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -62,9 +98,11 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
 
   return (
     <div>
-      <button onClick={onBack} className="mb-4 flex items-center gap-1 text-sm text-zinc-400 active:text-white">
-        <ChevronLeft size={16} /> Back to Cards
-      </button>
+      {!onActionButton && (
+        <button onClick={onBack} className="mb-4 flex items-center gap-1 text-sm text-zinc-400 active:text-white">
+          <ChevronLeft size={16} /> Back to Cards
+        </button>
+      )}
 
       {/* Step: Amount */}
       {step === 'amount' && (
@@ -104,13 +142,15 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
             ))}
           </div>
 
-          <button
-            onClick={() => setStep('confirm')}
-            disabled={depositAmount <= 0}
-            className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
-          >
-            Continue
-          </button>
+          {!onActionButton && (
+            <button
+              onClick={() => setStep('confirm')}
+              disabled={depositAmount <= 0}
+              className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
+            >
+              Continue
+            </button>
+          )}
         </div>
       )}
 
@@ -181,21 +221,23 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
             )}
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => setStep('amount')}
-              className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
-            >
-              Back
-            </button>
-            <button
-              onClick={handleConfirm}
-              disabled={!canAfford}
-              className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
-            >
-              Pay & Deposit
-            </button>
-          </div>
+          {!onActionButton && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStep('amount')}
+                className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
+              >
+                Back
+              </button>
+              <button
+                onClick={handleConfirm}
+                disabled={!canAfford}
+                className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
+              >
+                Pay & Deposit
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -216,12 +258,14 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
           <p className="mt-1 text-sm text-zinc-400">
             ${depositAmount.toFixed(2)} added to •{card.last4}
           </p>
-          <button
-            onClick={() => { onSuccess(); onBack(); }}
-            className="mt-6 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
-          >
-            Done
-          </button>
+          {!onActionButton && (
+            <button
+              onClick={() => { onSuccess(); onBack(); }}
+              className="mt-6 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
+            >
+              Done
+            </button>
+          )}
         </div>
       )}
 
@@ -231,12 +275,14 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
           <XCircle size={48} className="mx-auto text-red-400" />
           <p className="mt-4 text-lg font-bold text-white">Deposit Failed</p>
           <p className="mt-1 text-sm text-zinc-400">{result?.error}</p>
-          <button
-            onClick={() => setStep('confirm')}
-            className="mt-6 rounded-xl border border-zinc-700 bg-zinc-800 px-8 py-3 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
-          >
-            Try Again
-          </button>
+          {!onActionButton && (
+            <button
+              onClick={() => setStep('confirm')}
+              className="mt-6 rounded-xl border border-zinc-700 bg-zinc-800 px-8 py-3 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
+            >
+              Try Again
+            </button>
+          )}
         </div>
       )}
     </div>

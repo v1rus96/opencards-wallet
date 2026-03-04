@@ -1,7 +1,7 @@
 'use client';
 
-import { Home, CreditCard, ClipboardList, Settings } from 'lucide-react';
-import { useRef, useEffect } from 'react';
+import { Home, CreditCard, ClipboardList, Settings, ChevronLeft } from 'lucide-react';
+import { useRef, useEffect, type ReactNode } from 'react';
 
 const PRIMARY = '#ee4f39';
 
@@ -14,13 +14,22 @@ const TABS = [
 
 export type TabId = typeof TABS[number]['id'];
 
+interface ActionButton {
+  icon: ReactNode;
+  onClick: () => void;
+}
+
 interface Props {
   active: TabId;
   onSelect: (tab: TabId) => void;
   bottomInset: number;
+  actionButton?: ActionButton;
+  morphedButton?: { label: string; onClick: () => void; disabled?: boolean; onBack?: () => void };
 }
 
-export function TabBar({ active, onSelect, bottomInset }: Props) {
+export function TabBar({ active, onSelect, bottomInset, actionButton, morphedButton }: Props) {
+  const isMorphed = !!morphedButton;
+  const hasBack = isMorphed && !!morphedButton?.onBack;
   const activeIdx = TABS.findIndex(t => t.id === active);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -89,7 +98,7 @@ export function TabBar({ active, onSelect, bottomInset }: Props) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
 
-    const radius = 35;
+    const radius = 34;
     const itemWidth = w / TABS.length;
     const center = itemWidth * animPos.current + itemWidth / 2;
 
@@ -154,7 +163,7 @@ export function TabBar({ active, onSelect, bottomInset }: Props) {
         bottom: 0,
         left: 0,
         right: 0,
-        zIndex: 50,
+        zIndex: 100,
         display: 'flex',
         justifyContent: 'center',
         paddingBottom: Math.max(8, bottomInset),
@@ -163,20 +172,80 @@ export function TabBar({ active, onSelect, bottomInset }: Props) {
         pointerEvents: 'none',
       }}
     >
+      {/* Row: nav pill + optional action button */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: ((!isMorphed && actionButton) || hasBack) ? 10 : 0,
+          width: '100%',
+          maxWidth: 480,
+          justifyContent: 'center',
+          transition: 'gap 300ms cubic-bezier(0.33, 1, 0.68, 1)',
+        }}
+      >
+      {/* Back button — appears when morphed with onBack */}
+      <div
+        style={{
+          width: hasBack ? 68 : 0,
+          height: 68,
+          flexShrink: 0,
+          overflow: 'visible',
+          transition: 'width 300ms cubic-bezier(0.33, 1, 0.68, 1)',
+        }}
+      >
+        <div
+          style={{
+            width: 68,
+            height: 68,
+            borderRadius: 34,
+            padding: 1.5,
+            background: 'linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.2))',
+            transform: hasBack ? 'scale(1)' : 'scale(0)',
+            opacity: hasBack ? 1 : 0,
+            transition: 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease',
+          }}
+        >
+          <button
+            onClick={morphedButton?.onBack}
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: 32.5,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              pointerEvents: 'auto',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.16), rgba(0,0,0,0.04))',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            <ChevronLeft size={24} strokeWidth={2.5} />
+          </button>
+        </div>
+      </div>
+
       {/* Glass container with canvas border */}
       <div
         ref={containerRef}
         style={{
           position: 'relative',
-          width: '100%',
+          flex: 1,
           maxWidth: 480,
-          borderRadius: 35,
-          height: 70,
+          minWidth: 0,
+          borderRadius: 34,
+          height: 68,
           overflow: 'hidden',
           backdropFilter: 'blur(30px)',
           WebkitBackdropFilter: 'blur(30px)',
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.16), rgba(0,0,0,0.04))',
+          background: isMorphed ? PRIMARY : 'linear-gradient(to bottom, rgba(0,0,0,0.16), rgba(0,0,0,0.04))',
           pointerEvents: 'auto',
+          transition: 'max-width 300ms cubic-bezier(0.33, 1, 0.68, 1), flex 300ms cubic-bezier(0.33, 1, 0.68, 1), background 300ms ease',
         }}
       >
         {/* Canvas for animated gradient borders */}
@@ -200,11 +269,12 @@ export function TabBar({ active, onSelect, bottomInset }: Props) {
             top: 0,
             width: `${(250 / TABS.length)}%`,
             left: 0,
-            height: 70,
+            height: 68,
             transform: `translateX(${((activeIdx * 100 - 75) * 100 / 250)}%)`,
-            transition: 'transform 300ms cubic-bezier(0.33, 1, 0.68, 1)',
+            transition: 'transform 300ms cubic-bezier(0.33, 1, 0.68, 1), opacity 200ms ease',
             willChange: 'transform',
             pointerEvents: 'none',
+            opacity: isMorphed ? 0 : 1,
             background: `radial-gradient(ellipse 50% 70% at 50% 140%, ${PRIMARY}80, transparent)`,
           }}
         />
@@ -236,10 +306,11 @@ export function TabBar({ active, onSelect, bottomInset }: Props) {
                   background: 'none',
                   cursor: 'pointer',
                   padding: 0,
-                  transform: isActive ? 'scale(1)' : 'scale(0.88)',
-                  opacity: isActive ? 1 : 0.5,
-                  transition: 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 300ms ease',
+                  transform: isMorphed ? 'scale(0.5)' : isActive ? 'scale(1)' : 'scale(0.88)',
+                  opacity: isMorphed ? 0 : isActive ? 1 : 0.5,
+                  transition: 'transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease',
                   color: '#fff',
+                  pointerEvents: isMorphed ? 'none' : undefined,
                   WebkitTapHighlightColor: 'transparent',
                 }}
               >
@@ -259,6 +330,83 @@ export function TabBar({ active, onSelect, bottomInset }: Props) {
             );
           })}
         </div>
+
+        {/* Morphed action button — centered label overlay */}
+        <button
+          onClick={morphedButton?.onClick}
+          disabled={morphedButton?.disabled}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 4,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: 'none',
+            background: 'none',
+            cursor: isMorphed && !morphedButton?.disabled ? 'pointer' : 'default',
+            color: '#fff',
+            opacity: isMorphed ? (morphedButton?.disabled ? 0.4 : 1) : 0,
+            transform: isMorphed ? 'scale(1)' : 'scale(0.8)',
+            transition: 'opacity 200ms ease 100ms, transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1) 100ms',
+            pointerEvents: isMorphed ? 'auto' : 'none',
+            fontSize: 14,
+            fontWeight: 700,
+            fontFamily: "'Inter', system-ui, sans-serif",
+            letterSpacing: 0.3,
+            WebkitTapHighlightColor: 'transparent',
+          }}
+        >
+          {morphedButton?.label}
+        </button>
+      </div>
+
+      {/* Action button wrapper — animates width for smooth layout shift */}
+      <div
+        style={{
+          width: (!isMorphed && actionButton) ? 68 : 0,
+          height: 68,
+          flexShrink: 0,
+          overflow: 'visible',
+          transition: 'width 300ms cubic-bezier(0.33, 1, 0.68, 1)',
+        }}
+      >
+        {/* Glassmorphic circle — gradient border via background trick */}
+        <div
+          style={{
+            width: 68,
+            height: 68,
+            borderRadius: 34,
+            padding: 1.5,
+            background: 'linear-gradient(to bottom, rgba(255,255,255,0.6), rgba(255,255,255,0.2))',
+            transform: (!isMorphed && actionButton) ? 'scale(1)' : 'scale(0)',
+            opacity: (!isMorphed && actionButton) ? 1 : 0,
+            transition: 'transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 200ms ease',
+          }}
+        >
+          <button
+            onClick={actionButton?.onClick}
+            style={{
+              width: '100%',
+              height: '100%',
+              borderRadius: 32.5,
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              pointerEvents: 'auto',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              background: 'linear-gradient(to bottom, rgba(0,0,0,0.16), rgba(0,0,0,0.04))',
+              WebkitTapHighlightColor: 'transparent',
+            }}
+          >
+            {actionButton?.icon}
+          </button>
+        </div>
+      </div>
       </div>
     </div>
   );
