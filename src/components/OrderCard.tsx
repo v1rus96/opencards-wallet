@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { DrawerAction } from '@/components/DepositCard';
 import { CreditCard, ChevronLeft, Loader2, CheckCircle2, XCircle, Wallet } from 'lucide-react';
 import { TokenUSDC } from '@web3icons/react';
@@ -37,6 +37,30 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
   const [result, setResult] = useState<{ order?: { id: string; last4?: string }; error?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [scanProgress, setScanProgress] = useState(0);
+
+  // Haptic feedback for slider — fires on every $50 boundary
+  const lastHapticVal = useRef(Number(amount));
+  const hapticRef = useRef((val: number) => {
+    const prev = lastHapticVal.current;
+    const boundary = 50;
+    // Fire haptic when crossing a $50 boundary
+    if (Math.floor(prev / boundary) !== Math.floor(val / boundary)) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const wa = (window as any).Telegram?.WebApp;
+        wa?.HapticFeedback?.selectionChanged?.();
+      } catch { /* */ }
+    }
+    lastHapticVal.current = val;
+  });
+
+  const hapticTick = useCallback(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const wa = (window as any).Telegram?.WebApp;
+      wa?.HapticFeedback?.impactOccurred?.('light');
+    } catch { /* */ }
+  }, []);
 
   // Map steps to scan progress — CardScanAnimation handles smooth interpolation
   const stepProgress: Record<Step, number> = {
@@ -180,37 +204,48 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
             {selectedProduct.organization} {selectedProduct.type} · Fee: ${selectedProduct.cardPrice}
           </p>
 
-          <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-5 text-center">
-            <div className="flex items-center justify-center gap-1">
-              <span className="text-2xl text-zinc-500">$</span>
-              <input
-                type="number"
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                className="w-32 border-none bg-transparent font-mono text-center text-4xl font-extrabold text-white outline-none"
-                min={Number(selectedProduct.depositMin)}
-                max={Number(selectedProduct.depositMax)}
-                autoFocus
-              />
+          {/* Amount display */}
+          <div className="mb-6 text-center">
+            <span className="font-mono text-5xl font-extrabold text-white">${Number(amount).toLocaleString()}</span>
+          </div>
+
+          {/* Slider */}
+          <div className="mb-3 px-1">
+            <input
+              type="range"
+              min={20}
+              max={10000}
+              step={1}
+              value={Number(amount)}
+              onChange={e => {
+                const v = e.target.value;
+                if (v !== amount) {
+                  setAmount(v);
+                  hapticRef.current(Number(v));
+                }
+              }}
+              className="amount-slider w-full"
+              style={{ '--val': `${((Number(amount) - 20) / (10000 - 20)) * 100}%` } as React.CSSProperties}
+            />
+            <div className="mt-2 flex justify-between text-xs text-zinc-500">
+              <span>$20</span>
+              <span>$10,000</span>
             </div>
-            <p className="mt-2 text-xs text-zinc-500">
-              Min ${selectedProduct.depositMin} · Max ${Number(selectedProduct.depositMax).toLocaleString()}
-            </p>
           </div>
 
           {/* Quick amounts */}
           <div className="mb-5 flex gap-2">
-            {[10, 25, 50, 100].map(v => (
+            {[25, 50, 100, 500, 1000].map(v => (
               <button
                 key={v}
-                onClick={() => setAmount(String(v))}
-                className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition-all ${
+                onClick={() => { setAmount(String(v)); hapticTick(); }}
+                className={`flex-1 rounded-lg border py-2 text-xs font-semibold transition-all ${
                   amount === String(v)
                     ? 'border-primary/30 bg-primary/10 text-primary'
                     : 'border-zinc-700 bg-zinc-800 text-zinc-400'
                 }`}
               >
-                ${v}
+                ${v >= 1000 ? `${v / 1000}k` : v}
               </button>
             ))}
           </div>

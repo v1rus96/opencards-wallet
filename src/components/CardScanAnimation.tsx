@@ -221,8 +221,8 @@ export function CardScanAnimation({ children, progress: extProg, onComplete }: C
         return; // stop loop
       }
 
-      // Smooth lerp: ~3% per frame at 60fps ≈ 1.5s to cover large jumps
-      const speed = Math.max(3, Math.abs(diff) * 0.06); // slower, more cinematic
+      // Smooth lerp: ~1% per frame at 60fps ≈ 3-4s to cover large jumps
+      const speed = Math.max(1, Math.abs(diff) * 0.025); // very slow, cinematic
       const step = Math.sign(diff) * Math.min(Math.abs(diff), speed * dt * 60);
       currentRef.current = current + step;
       setAnimProg(currentRef.current);
