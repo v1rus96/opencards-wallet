@@ -250,7 +250,7 @@ function CardVisual({
   return (
     <div style={{ aspectRatio: "360/227", position: "relative", borderRadius: 12, overflow: "hidden", background: "#2A292D", boxShadow: "0 2px 8px rgba(0,0,0,.18), 0 8px 24px rgba(0,0,0,.22), 0 16px 48px rgba(0,0,0,.16)", userSelect: "none" }}>
       {/* Background */}
-      <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%", filter: isFrozen ? "saturate(0) brightness(.7)" : "none", transition: "filter .5s" }}>
+      <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%", filter: isFrozen ? "brightness(.85) saturate(0.3)" : "none", transition: "filter .5s" }}>
         {isDyn
           ? <DynamicMesh />
           : isIri
@@ -259,11 +259,12 @@ function CardVisual({
               ? <img src={d.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               : <div style={{ position: "absolute", inset: "-20%", width: "140%", height: "140%", background: d.bg, transform: "rotate(" + (ph * 15) + "deg)", transition: "transform .3s linear" }} />}
       </div>
-      {/* Frozen overlay — ice texture + badge (matches plata-card-v3) */}
+      {/* Frozen overlay — icy frost frame + badge */}
       {isFrozen && (
         <>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(180,210,240,0.35)", pointerEvents: "none" }} />
           <div style={{ position: "absolute", inset: 0, borderRadius: 12, overflow: "hidden", pointerEvents: "none" }}>
-            <img src="/abstract-white-frost-patterns-on-black-background-png.png" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.35, mixBlendMode: "screen" }} />
+            <img src="/cqu6Rn.png" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.7, mixBlendMode: "lighten" }} />
           </div>
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>
             <button
@@ -338,11 +339,11 @@ function CardVisual({
             {onFreeze && (
               <button
                 onPointerUp={(e) => { e.stopPropagation(); handleFreeze(); }}
-                style={{ width: 34, height: 34, borderRadius: "50%", background: isFrozen ? "rgba(96,165,250,.45)" : (dark ? "rgba(255,255,255,.15)" : "rgba(0,0,0,.05)"), border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .2s ease" }}
+                style={{ width: 34, height: 34, borderRadius: "50%", background: dark ? "rgba(255,255,255,.15)" : "rgba(0,0,0,.05)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "background .2s ease" }}
               >
                 {freezing
                   ? <Loader2 size={16} color={tc} className="animate-spin" />
-                  : <Snowflake size={16} color={isFrozen ? "#60a5fa" : tc} opacity={isFrozen ? 1 : 0.7} />}
+                  : <Snowflake size={16} color={tc} opacity={0.7} />}
               </button>
             )}
           </div>
