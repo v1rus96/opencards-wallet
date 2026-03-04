@@ -27,15 +27,16 @@ export function AddressBar() {
   if (entries.length === 0) return null;
 
   return (
-    <div className="space-y-2">
-      {entries.map(({ label, addr, icon }) => (
+    <div className="relative overflow-hidden rounded-xl border border-white/[0.06] bg-gradient-to-br from-[#0e0e0e] to-[#0a0a0a]">
+      <div className="absolute -bottom-8 -right-8 h-20 w-20 rounded-full bg-primary/[0.04] blur-2xl" />
+      {entries.map(({ label, addr, icon }, i) => (
         <button
           key={label}
           onClick={() => copyToClipboard(addr)}
-          className="flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 transition-all active:scale-[0.98]"
+          className={`relative z-10 flex w-full items-center px-4 py-3.5 transition-all active:bg-white/[0.03] ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
         >
           <span className="mr-3">{icon}</span>
-          <span className="mr-2 text-xs font-bold text-teal-400">{label}</span>
+          <span className="mr-2 text-xs font-bold text-primary">{label}</span>
           <span className="flex-1 truncate font-mono text-xs text-zinc-500">
             {addr.slice(0, 8)}...{addr.slice(-6)}
           </span>

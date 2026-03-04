@@ -101,8 +101,8 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
       {/* Welcome */}
       {step === 'welcome' && (
         <div className="animate-fadeIn text-center">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-teal-500/10">
-            <Shield size={36} className="text-teal-400" />
+          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10">
+            <Shield size={36} className="text-primary" />
           </div>
           <h1 className="mb-2 text-2xl font-bold">Agent Wallet</h1>
           <p className="mb-8 text-sm text-zinc-500">
@@ -110,7 +110,7 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
           </p>
           <button
             onClick={() => setStep('choice')}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-500 py-4 text-base font-bold text-zinc-950 transition-all active:scale-[0.98]"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-base font-bold text-primary-foreground transition-all active:scale-[0.98]"
           >
             Get Started <ChevronRight size={18} />
           </button>
@@ -127,8 +127,8 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
             onClick={() => { setError(null); setStep('register'); }}
             className="mb-3 flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-900 p-4 transition-all active:scale-[0.98]"
           >
-            <div className="mr-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-teal-500/10">
-              <UserPlus size={22} className="text-teal-400" />
+            <div className="mr-4 flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+              <UserPlus size={22} className="text-primary" />
             </div>
             <div className="text-left">
               <p className="text-sm font-semibold">Create New Account</p>
@@ -201,7 +201,7 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
             <button
               onClick={handleRegister}
               disabled={!name || name.trim().length < 2 || testing}
-              className="flex-1 rounded-xl bg-teal-500 py-3.5 text-sm font-bold text-zinc-950 transition-all active:scale-[0.98] disabled:opacity-40"
+              className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
             >
               {testing ? 'Creating...' : 'Create Account'}
             </button>
@@ -247,7 +247,7 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
             <button
               onClick={handleImport}
               disabled={!apiKey || testing}
-              className="flex-1 rounded-xl bg-teal-500 py-3.5 text-sm font-bold text-zinc-950 transition-all active:scale-[0.98] disabled:opacity-40"
+              className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
             >
               {testing ? 'Verifying...' : 'Connect'}
             </button>
@@ -293,7 +293,7 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
                         <Wallet size={12} />
                         Solana Wallet (Devnet)
                       </div>
-                      <code className="break-all text-xs text-teal-400">{regResult.solWallet}</code>
+                      <code className="break-all text-xs text-primary">{regResult.solWallet}</code>
                     </div>
                   )}
                   {regResult.evmWallet && (
@@ -302,7 +302,7 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
                         <Wallet size={12} />
                         EVM Wallet (Base Sepolia)
                       </div>
-                      <code className="break-all text-xs text-teal-400">{regResult.evmWallet}</code>
+                      <code className="break-all text-xs text-primary">{regResult.evmWallet}</code>
                     </div>
                   )}
                   <p className="text-[10px] text-zinc-600 text-center">Fund with USDC to order cards</p>
@@ -311,7 +311,7 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
 
               <button
                 onClick={onComplete}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-teal-500 py-4 text-base font-bold text-zinc-950 transition-all active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary py-4 text-base font-bold text-primary-foreground transition-all active:scale-[0.98]"
               >
                 Open Wallet <ChevronRight size={18} />
               </button>

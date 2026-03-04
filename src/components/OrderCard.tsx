@@ -82,7 +82,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-teal-400" />
+        <Loader2 size={24} className="animate-spin text-primary" />
       </div>
     );
   }
@@ -105,7 +105,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
                 onClick={() => { setSelectedProduct(p); setStep('amount'); }}
                 className="flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-left transition-all active:scale-[0.98]"
               >
-                <CreditCard size={20} className="mr-3 text-teal-400" />
+                <CreditCard size={20} className="mr-3 text-primary" />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-white">{p.organization} {p.type}</p>
                   <p className="text-xs text-zinc-500">Card fee: ${p.cardPrice} · Deposit: ${p.depositMin}–${Number(p.depositMax).toLocaleString()}</p>
@@ -132,7 +132,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
                 type="number"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
-                className="w-32 border-none bg-transparent text-center text-4xl font-extrabold text-white outline-none"
+                className="w-32 border-none bg-transparent font-mono text-center text-4xl font-extrabold text-white outline-none"
                 min={Number(selectedProduct.depositMin)}
                 max={Number(selectedProduct.depositMax)}
                 autoFocus
@@ -151,7 +151,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
                 onClick={() => setAmount(String(v))}
                 className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition-all ${
                   amount === String(v)
-                    ? 'border-teal-500/30 bg-teal-500/10 text-teal-400'
+                    ? 'border-primary/30 bg-primary/10 text-primary'
                     : 'border-zinc-700 bg-zinc-800 text-zinc-400'
                 }`}
               >
@@ -163,7 +163,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
           <button
             onClick={() => setStep('confirm')}
             disabled={!amount || parseFloat(amount) < Number(selectedProduct.depositMin)}
-            className="w-full rounded-xl bg-teal-500 py-3.5 text-sm font-bold text-zinc-950 transition-all active:scale-[0.98] disabled:opacity-40"
+            className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
           >
             Continue
           </button>
@@ -198,7 +198,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
                 <div className="border-t border-zinc-800 pt-2">
                   <div className="flex justify-between text-sm">
                     <span className="font-semibold text-white">You pay</span>
-                    <span className="font-bold text-teal-400">${totalCharge.toFixed(2)} USDC</span>
+                    <span className="font-mono font-bold text-primary">${totalCharge.toFixed(2)} USDC</span>
                   </div>
                   {cardFee > 0 && (
                     <div className="flex justify-between text-xs mt-1">
@@ -253,7 +253,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
             <button
               onClick={handleConfirm}
               disabled={!canAfford}
-              className="flex-1 rounded-xl bg-teal-500 py-3.5 text-sm font-bold text-zinc-950 transition-all active:scale-[0.98] disabled:opacity-40"
+              className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
             >
               Pay & Order
             </button>
@@ -264,7 +264,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
       {/* Step: Processing */}
       {step === 'processing' && (
         <div className="animate-fadeIn py-16 text-center">
-          <Loader2 size={40} className="mx-auto animate-spin text-teal-400" />
+          <Loader2 size={40} className="mx-auto animate-spin text-primary" />
           <p className="mt-4 text-sm font-semibold text-white">Processing x402 Payment...</p>
           <p className="mt-1 text-xs text-zinc-500">Signing transaction & ordering card</p>
         </div>
@@ -280,7 +280,7 @@ export function OrderCard({ onBack, onSuccess }: Props) {
           </p>
           <button
             onClick={() => { onSuccess(); onBack(); }}
-            className="mt-6 rounded-xl bg-teal-500 px-8 py-3 text-sm font-bold text-zinc-950 transition-all active:scale-[0.98]"
+            className="mt-6 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
           >
             Done
           </button>

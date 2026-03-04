@@ -18,7 +18,7 @@ function ProgressBar({ value, max, label }: { value: number; max: number; label:
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
       <div className="mb-2.5 flex justify-between">
         <span className="text-xs font-medium text-zinc-500">{label}</span>
-        <span className="text-xs font-semibold text-white">
+        <span className="font-mono text-xs font-semibold text-white">
           ${value.toLocaleString()} / ${max.toLocaleString()}
         </span>
       </div>
@@ -51,16 +51,16 @@ function EditField({ label, value, onSave }: { label: string; value: number; onS
             type="number"
             value={draft}
             onChange={e => setDraft(e.target.value)}
-            className="w-24 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-right text-sm font-semibold text-white outline-none focus:border-teal-500"
+            className="w-24 rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-1.5 text-right text-sm font-semibold text-white outline-none focus:border-primary"
             autoFocus
           />
-          <button onClick={save} className="text-teal-400"><Check size={16} /></button>
+          <button onClick={save} className="text-primary"><Check size={16} /></button>
           <button onClick={() => setEditing(false)} className="text-zinc-500"><X size={16} /></button>
         </div>
       ) : (
         <button
           onClick={() => { setDraft(String(value)); setEditing(true); }}
-          className="text-sm font-semibold text-white"
+          className="font-mono text-sm font-semibold text-white"
         >
           ${value.toLocaleString()}
         </button>

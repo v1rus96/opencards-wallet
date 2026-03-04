@@ -69,7 +69,7 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
     if (type.includes('withdraw') || type.includes('spend') || type.includes('purchase'))
       return { icon: <ArrowUpRight size={16} />, cls: 'bg-red-500/10 text-red-400' };
     if (type.includes('create') || type.includes('open'))
-      return { icon: <CreditCard size={16} />, cls: 'bg-teal-500/10 text-teal-400' };
+      return { icon: <CreditCard size={16} />, cls: 'bg-primary/10 text-primary' };
     if (type.includes('freeze'))
       return { icon: <Snowflake size={16} />, cls: 'bg-blue-500/10 text-blue-400' };
     return { icon: <CircleDot size={16} />, cls: 'bg-zinc-500/10 text-zinc-400' };
@@ -89,7 +89,7 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
           <button
             onClick={() => setSelectedCard('all')}
             className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${selectedCard === 'all'
-                ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
+                ? 'bg-primary/15 text-primary border border-primary/30'
                 : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
               }`}
           >
@@ -100,7 +100,7 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
               key={last4}
               onClick={() => setSelectedCard(last4!)}
               className={`shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${selectedCard === last4
-                  ? 'bg-teal-500/15 text-teal-400 border border-teal-500/30'
+                  ? 'bg-primary/15 text-primary border border-primary/30'
                   : 'bg-zinc-800 text-zinc-400 border border-zinc-700'
                 }`}
             >
@@ -142,7 +142,7 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className={`text-sm font-bold ${(tx.amount || 0) > 0 ? 'text-emerald-400' : 'text-red-400'
+                  <p className={`font-mono text-sm font-bold ${(tx.amount || 0) > 0 ? 'text-emerald-400' : 'text-red-400'
                     }`}>
                     {(tx.amount || 0) > 0 ? '+' : '-'}${Math.abs(tx.amount || 0).toFixed(2)}
                   </p>

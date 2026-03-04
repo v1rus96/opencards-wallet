@@ -12,7 +12,7 @@ const TransactionHistory = dynamic(() => import('@/components/TransactionHistory
 const DESIGNS = [
   { name: "Dynamic", type: "dynamic" as const },
   { name: "Snowy Mint", img: "/snowy-mint.jpg" },
-  { name: "Iridescent", type: "iridescent" as const },
+  { name: "Holographic", type: "holographic" as const },
   { name: "Egg Sour", bg: "linear-gradient(135deg, #fef3c7 0%, #fde68a 25%, #fcd34d 50%, #fef9c3 100%)" },
   { name: "Columbia Blue", bg: "linear-gradient(135deg, #bfdbfe 0%, #93c5fd 25%, #a5b4fc 50%, #ddd6fe 75%, #c7d2fe 100%)" },
   { name: "My Pink", bg: "linear-gradient(135deg, #fce7f3 0%, #fbcfe8 25%, #f9a8d4 50%, #fda4af 75%, #fecdd3 100%)" },
@@ -25,51 +25,115 @@ const DESIGNS = [
   { name: "Sunset", bg: "linear-gradient(135deg, #f97316 0%, #ef4444 25%, #db2777 50%, #9333ea 75%, #7c3aed 100%)" },
 ];
 
-/* ── Apple Card-style iridescent gyroscope background ────────────── */
-function IridescentBg() {
-  const ref = useRef<HTMLDivElement>(null);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+/* ── Holographic gyroscope card — dot-grid with shifting gradient ── */
+function HolographicBg() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const tiltRef = useRef({ x: 0, y: 0 });
+  const smoothTilt = useRef({ x: 0, y: 0 });
   const rafId = useRef<number>(0);
 
   useEffect(() => {
+    const c = canvasRef.current;
+    if (!c) return;
+    const ctx = c.getContext('2d');
+    if (!ctx) return;
     let hasGyro = false;
 
     /* Gyroscope handler (mobile) */
     const handleOrientation = (e: DeviceOrientationEvent) => {
       hasGyro = true;
-      const x = Math.max(-1, Math.min(1, (e.gamma || 0) / 45));  // left/right tilt
-      const y = Math.max(-1, Math.min(1, (e.beta || 0) / 45));  // front/back tilt
-      tiltRef.current = { x, y };
+      tiltRef.current = {
+        x: Math.max(-1, Math.min(1, (e.gamma || 0) / 45)),
+        y: Math.max(-1, Math.min(1, (e.beta || 0) / 45)),
+      };
     };
 
     /* Mouse handler (desktop fallback) */
     const handleMouse = (e: MouseEvent) => {
       if (hasGyro) return;
-      const el = ref.current;
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-      const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
-      tiltRef.current = { x, y };
+      const rect = c.getBoundingClientRect();
+      tiltRef.current = {
+        x: ((e.clientX - rect.left) / rect.width - 0.5) * 2,
+        y: ((e.clientY - rect.top) / rect.height - 0.5) * 2,
+      };
     };
 
-    /* Smooth animation loop */
-    function animate() {
-      setTilt(prev => ({
-        x: prev.x + (tiltRef.current.x - prev.x) * 0.08,
-        y: prev.y + (tiltRef.current.y - prev.y) * 0.08,
-      }));
-      rafId.current = requestAnimationFrame(animate);
+    function draw() {
+      const s = smoothTilt.current;
+      s.x += (tiltRef.current.x - s.x) * 0.08;
+      s.y += (tiltRef.current.y - s.y) * 0.08;
+
+      const dpr = 2;
+      const w = c!.offsetWidth * dpr;
+      const h = c!.offsetHeight * dpr;
+      c!.width = w;
+      c!.height = h;
+      ctx!.clearRect(0, 0, w, h);
+
+      const tiltMag = Math.min(1, Math.sqrt(s.x * s.x + s.y * s.y));
+
+      /* Holographic gradient — shifts position with tilt */
+      const grad = ctx!.createLinearGradient(
+        w * (0.15 + s.x * 0.1), h * (0.15 + s.y * 0.1),
+        w * (0.85 - s.x * 0.1), h * (0.85 - s.y * 0.1)
+      );
+      grad.addColorStop(0, '#ECD9A8');     // Rich champagne
+      grad.addColorStop(0.17, '#B89FCC');  // Medium lavender
+      grad.addColorStop(0.33, '#E5C896'); // Warm gold
+      grad.addColorStop(0.5, '#8FB3D5');   // Soft blue
+      grad.addColorStop(0.67, '#E8CF9E'); // Golden beige
+      grad.addColorStop(0.83, '#9B89C0'); // Periwinkle
+      grad.addColorStop(1, '#EDD5A5');    // Champagne gold
+
+      /* Draw dot grid — visibility increases with tilt */
+      const cols = 25;
+      const sz = w / cols;
+      const rows = Math.ceil(h / sz) + 1;
+
+      ctx!.globalAlpha = 0.15 + tiltMag * 0.55;
+      ctx!.fillStyle = grad;
+      for (let i = 0; i < cols; i++) {
+        for (let j = 0; j < rows; j++) {
+          ctx!.beginPath();
+          ctx!.arc(sz / 2 + i * sz, sz / 2 + j * sz, sz / 2, 0, Math.PI * 2);
+          ctx!.fill();
+        }
+      }
+      ctx!.globalAlpha = 1;
+
+      /* Moving spotlight mask — carves a soft hole that follows tilt */
+      const mx = w / 2 - s.x * (w / 3);
+      const my = h / 2 + s.y * (h / 3);
+      const mr = h / 2;
+      ctx!.globalCompositeOperation = 'destination-out';
+      const mg = ctx!.createRadialGradient(mx, my, 0, mx, my, mr);
+      mg.addColorStop(0, 'rgba(0,0,0,0.8)');
+      mg.addColorStop(0.5, 'rgba(0,0,0,0.25)');
+      mg.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx!.fillStyle = mg;
+      ctx!.fillRect(0, 0, w, h);
+
+      /* Circular cutouts — notches at top & bottom center */
+      ctx!.fillStyle = 'black';
+      ctx!.beginPath();
+      ctx!.arc(w / 2, 0, sz, 0, Math.PI * 2);
+      ctx!.fill();
+      ctx!.beginPath();
+      ctx!.arc(w / 2, h, sz, 0, Math.PI * 2);
+      ctx!.fill();
+      ctx!.globalCompositeOperation = 'source-over';
+
+      rafId.current = requestAnimationFrame(draw);
     }
-    rafId.current = requestAnimationFrame(animate);
+
+    rafId.current = requestAnimationFrame(draw);
 
     /* Request gyroscope permission (iOS 13+) */
     const doe = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<string> };
     if (typeof doe.requestPermission === 'function') {
       doe.requestPermission().then(state => {
         if (state === 'granted') window.addEventListener('deviceorientation', handleOrientation);
-      }).catch(() => { });
+      }).catch(() => {});
     } else {
       window.addEventListener('deviceorientation', handleOrientation);
     }
@@ -82,58 +146,25 @@ function IridescentBg() {
     };
   }, []);
 
-  const hueShift = tilt.x * 60;            // -60° to +60° hue rotation
-  const lightX = 50 + tilt.x * 35;       // spotlight X position
-  const lightY = 50 + tilt.y * 35;       // spotlight Y position
-  const angle = 135 + tilt.x * 30;      // gradient angle shifts
+  /* CSS mask for circular cutouts through the white base too */
+  const cutoutMask = 'radial-gradient(circle at 50% 0, transparent 3.5%, black 4%), radial-gradient(circle at 50% 100%, transparent 3.5%, black 4%)';
 
   return (
-    <div ref={ref} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden" }}>
-      {/* Base titanium layer */}
+    <div style={{
+      position: "absolute", inset: 0, width: "100%", height: "100%", overflow: "hidden",
+      WebkitMaskImage: cutoutMask,
+      maskImage: cutoutMask,
+      WebkitMaskComposite: 'source-in',
+      maskComposite: 'intersect' as unknown as string,
+    } as React.CSSProperties}>
+      {/* White base card */}
+      <div style={{ position: "absolute", inset: 0, background: "#FFFFFF" }} />
+      {/* Holographic dot-grid overlay */}
+      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+      {/* Specular highlight */}
       <div style={{
-        position: "absolute", inset: 0,
-        background: `linear-gradient(${angle}deg, #e8e8ec 0%, #d1d1d6 25%, #f5f5f7 50%, #c7c7cc 75%, #e8e8ec 100%)`,
-      }} />
-      {/* Rainbow iridescence layer */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: `
-          linear-gradient(${angle + 90}deg,
-            hsla(${280 + hueShift}, 80%, 75%, 0.35) 0%,
-            hsla(${320 + hueShift}, 85%, 70%, 0.3) 15%,
-            hsla(${350 + hueShift}, 80%, 72%, 0.25) 30%,
-            hsla(${30 + hueShift}, 90%, 70%, 0.2) 45%,
-            hsla(${60 + hueShift}, 85%, 65%, 0.25) 55%,
-            hsla(${150 + hueShift}, 75%, 65%, 0.3) 70%,
-            hsla(${200 + hueShift}, 80%, 70%, 0.35) 85%,
-            hsla(${260 + hueShift}, 75%, 72%, 0.3) 100%
-          )`,
-        mixBlendMode: "color",
-        transition: "background 0.05s linear",
-      }} />
-      {/* Specular highlight that follows tilt */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: `radial-gradient(ellipse 80% 60% at ${lightX}% ${lightY}%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.15) 40%, transparent 70%)`,
-        transition: "background 0.05s linear",
-      }} />
-      {/* Prismatic refraction bands */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: `
-          repeating-linear-gradient(${angle + 45}deg,
-            transparent 0px,
-            rgba(255,255,255,0.03) 2px,
-            transparent 4px,
-            rgba(200,180,255,0.04) 6px,
-            transparent 8px
-          )`,
-        opacity: 0.7 + Math.abs(tilt.x) * 0.3,
-      }} />
-      {/* Edge highlight */}
-      <div style={{
-        position: "absolute", inset: 0,
-        background: `linear-gradient(${180 + tilt.x * 20}deg, rgba(255,255,255,0.1) 0%, transparent 30%, transparent 70%, rgba(255,255,255,0.06) 100%)`,
+        position: "absolute", inset: 0, pointerEvents: "none",
+        background: `radial-gradient(ellipse 70% 50% at ${50 + smoothTilt.current.x * 30}% ${50 + smoothTilt.current.y * 30}%, rgba(255,255,255,0.25) 0%, transparent 60%)`,
       }} />
     </div>
   );
@@ -219,7 +250,7 @@ function CardVisual({
   /* design variables */
   const d = DESIGNS[designIdx] || DESIGNS[1];
   const isDyn = d.type === "dynamic";
-  const isIri = d.type === "iridescent";
+  const isHolo = d.type === "holographic";
   const dark = ["Midnight", "Aurora", "Sunset"].includes(d.name) || isDyn;
   /* Engraved = text darker than background + white shadow below */
   const tc = dark ? "#ffffff" : "#1a1d21";
@@ -253,8 +284,8 @@ function CardVisual({
       <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%", filter: isFrozen ? "brightness(.85) saturate(0.3)" : "none", transition: "filter .5s" }}>
         {isDyn
           ? <DynamicMesh />
-          : isIri
-            ? <IridescentBg />
+          : isHolo
+            ? <HolographicBg />
             : 'img' in d && d.img
               ? <img src={d.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
               : <div style={{ position: "absolute", inset: "-20%", width: "140%", height: "140%", background: d.bg, transform: "rotate(" + (ph * 15) + "deg)", transition: "transform .3s linear" }} />}

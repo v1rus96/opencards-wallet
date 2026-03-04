@@ -55,7 +55,7 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 size={24} className="animate-spin text-teal-400" />
+        <Loader2 size={24} className="animate-spin text-primary" />
       </div>
     );
   }
@@ -81,7 +81,7 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
                 type="number"
                 value={amount}
                 onChange={e => setAmount(e.target.value)}
-                className="w-32 border-none bg-transparent text-center text-4xl font-extrabold text-white outline-none"
+                className="w-32 border-none bg-transparent font-mono text-center text-4xl font-extrabold text-white outline-none"
                 min={1}
                 autoFocus
               />
@@ -95,7 +95,7 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
                 onClick={() => setAmount(String(v))}
                 className={`flex-1 rounded-lg border py-2 text-sm font-semibold transition-all ${
                   amount === String(v)
-                    ? 'border-teal-500/30 bg-teal-500/10 text-teal-400'
+                    ? 'border-primary/30 bg-primary/10 text-primary'
                     : 'border-zinc-700 bg-zinc-800 text-zinc-400'
                 }`}
               >
@@ -107,7 +107,7 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
           <button
             onClick={() => setStep('confirm')}
             disabled={depositAmount <= 0}
-            className="w-full rounded-xl bg-teal-500 py-3.5 text-sm font-bold text-zinc-950 transition-all active:scale-[0.98] disabled:opacity-40"
+            className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
           >
             Continue
           </button>
@@ -135,7 +135,7 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-400">Deposit amount</span>
-                  <span className="font-bold text-teal-400">${depositAmount.toFixed(2)}</span>
+                  <span className="font-mono font-bold text-primary">${depositAmount.toFixed(2)}</span>
                 </div>
                 <div className="border-t border-zinc-800 pt-2">
                   <div className="flex justify-between text-sm">
@@ -191,7 +191,7 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
             <button
               onClick={handleConfirm}
               disabled={!canAfford}
-              className="flex-1 rounded-xl bg-teal-500 py-3.5 text-sm font-bold text-zinc-950 transition-all active:scale-[0.98] disabled:opacity-40"
+              className="flex-1 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
             >
               Pay & Deposit
             </button>
@@ -202,7 +202,7 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
       {/* Step: Processing */}
       {step === 'processing' && (
         <div className="animate-fadeIn py-16 text-center">
-          <Loader2 size={40} className="mx-auto animate-spin text-teal-400" />
+          <Loader2 size={40} className="mx-auto animate-spin text-primary" />
           <p className="mt-4 text-sm font-semibold text-white">Processing x402 Payment...</p>
           <p className="mt-1 text-xs text-zinc-500">Depositing ${depositAmount.toFixed(2)} to •{card.last4}</p>
         </div>
@@ -218,7 +218,7 @@ export function DepositCard({ card, onBack, onSuccess }: Props) {
           </p>
           <button
             onClick={() => { onSuccess(); onBack(); }}
-            className="mt-6 rounded-xl bg-teal-500 px-8 py-3 text-sm font-bold text-zinc-950 transition-all active:scale-[0.98]"
+            className="mt-6 rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98]"
           >
             Done
           </button>
