@@ -23,9 +23,10 @@ const EXPANDED_WIDTH = `calc(100vw - ${SIDE_INSET * 2}px)`
 
 /* ---- static styles (avoid re-creating objects every render) ---- */
 const backdropStyle: React.CSSProperties = {
-    background: "rgba(0,0,0,0.6)",
-    backdropFilter: "blur(12px)",
-    WebkitBackdropFilter: "blur(12px)",
+    background: "rgba(0,0,0,0.55)",
+    backdropFilter: "blur(4px)",
+    WebkitBackdropFilter: "blur(4px)",
+    transform: "translateZ(0)",
 }
 
 const fixedWrapperStyle: React.CSSProperties = {
@@ -43,14 +44,15 @@ const mainPanelStyle: React.CSSProperties = {
     pointerEvents: "auto",
     willChange: "height, width, border-radius",
     contain: "layout style",
+    transform: "translateZ(0)",
 }
 
 const glassLayerStyle: React.CSSProperties = {
     borderRadius: "inherit",
     border: "1px solid rgba(255,255,255,0.1)",
-    backdropFilter: "blur(48px)",
-    WebkitBackdropFilter: "blur(48px)",
-    willChange: "background",
+    backdropFilter: "blur(20px)",
+    WebkitBackdropFilter: "blur(20px)",
+    transform: "translateZ(0)",
 }
 
 const highlightStyle: React.CSSProperties = {
@@ -64,11 +66,11 @@ const navItemBtnStyle: React.CSSProperties = { width: 40, height: 40 }
 
 
 /* ---- static transition configs ---- */
-const backdropTransition = { duration: 0.35, ease }
-const mainTransition = { duration: 0.5, ease }
-const navFadeTransition = { duration: 0.25, ease }
-const stepTransition = { duration: 0.25, ease }
-const titleTransition = { delay: 0.08, duration: 0.35, ease }
+const backdropTransition = { duration: 0.25, ease }
+const mainTransition = { duration: 0.35, ease }
+const navFadeTransition = { duration: 0.2, ease }
+const stepTransition = { duration: 0.2, ease }
+const titleTransition = { delay: 0.05, duration: 0.25, ease }
 const ctaFadeTransition = { duration: 0.2 }
 const backBtnSpring = { type: "spring" as const, damping: 20, stiffness: 300, mass: 0.8 }
 
@@ -172,15 +174,23 @@ export function BottomNavbar({
             return
         }
         const el = contentRef.current
+        let rafId = 0
         const measure = () => {
-            const h = el.offsetHeight
-            if (h > 0) setContentHeight(h)
+            // Debounce via rAF to avoid multiple setState calls per frame
+            cancelAnimationFrame(rafId)
+            rafId = requestAnimationFrame(() => {
+                const h = el.offsetHeight
+                if (h > 0) setContentHeight((prev) => (prev === h ? prev : h))
+            })
         }
         // Measure after a frame so content has rendered
         requestAnimationFrame(measure)
         const ro = new ResizeObserver(measure)
         ro.observe(el)
-        return () => ro.disconnect()
+        return () => {
+            cancelAnimationFrame(rafId)
+            ro.disconnect()
+        }
     }, [isOpen, step, currentStepData])
 
     /* ---- Memoized animate targets (avoid new objects each render) ---- */
@@ -194,10 +204,6 @@ export function BottomNavbar({
         width: isOpen ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
         borderRadius: isOpen ? 30 : 50,
     }), [isOpen, expandedHeight])
-
-    const glassAnimate = useMemo(() => ({
-        background: isOpen ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.08)",
-    }), [isOpen])
 
     const navItemsAnimate = useMemo(() => ({
         opacity: isOpen ? 0 : 1,
@@ -264,11 +270,13 @@ export function BottomNavbar({
                         style={mainPanelStyle}
                     >
                         {/* Glass layer */}
-                        <motion.div
+                        <div
                             className="absolute inset-0 pointer-events-none"
-                            style={glassLayerStyle}
-                            animate={glassAnimate}
-                            transition={mainTransition}
+                            style={{
+                                ...glassLayerStyle,
+                                background: isOpen ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.08)",
+                                transition: "background 0.3s ease",
+                            }}
                         />
 
                         {/* Top inner highlight */}
