@@ -5,8 +5,7 @@ import { DrawerAction } from '@/components/DepositCard';
 import { CreditCard, ChevronLeft, Loader2, CheckCircle2, XCircle, Wallet } from 'lucide-react';
 import { TokenUSDC } from '@web3icons/react';
 import { getProducts, getPaymentWalletBalance, orderCard } from '@/lib/payment';
-import { CardScanAnimation } from '@/components/CardScanAnimation';
-import { OrderCardPreview } from '@/components/OrderCardPreview';
+import { CardTypeCarousel } from '@/components/CardTypeCarousel';
 import { SlidingNumber } from '@/components/SlidingNumber';
 
 
@@ -152,7 +151,7 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
 
   // Expose current action to parent (for morphed nav button)
   const performRef = useRef<() => void>(() => {});
-  if (step === 'product') performRef.current = onBack;
+  if (step === 'product') performRef.current = () => onBack();
   else if (step === 'amount') performRef.current = () => setStep('confirm');
   else if (step === 'confirm') performRef.current = handleConfirm;
   else if (step === 'success') performRef.current = () => { onSuccess(); onBack(); };
@@ -209,23 +208,12 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
       {/* Step: Select Product */}
       {step === 'product' && (
         <div className="animate-fadeIn">
-          <h2 className="mb-4 text-lg font-bold">Select Card Type</h2>
-          <div className="space-y-2">
-            {products.map(p => (
-              <button
-                key={p.id}
-                onClick={() => { setSelectedProduct(p); setStep('amount'); }}
-                className="flex w-full items-center rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-left transition-all active:scale-[0.98]"
-              >
-                <CreditCard size={20} className="mr-3 text-primary" />
-                <div className="flex-1">
-                  <p className="text-sm font-semibold text-white">{p.organization} {p.type}</p>
-                  <p className="text-xs text-zinc-500">Card fee: ${p.cardPrice} · Deposit: ${p.depositMin}–${Number(p.depositMax).toLocaleString()}</p>
-                </div>
-                <ChevronLeft size={16} className="rotate-180 text-zinc-600" />
-              </button>
-            ))}
-          </div>
+          <h2 className="mb-4 text-lg font-bold text-center">Select Card Type</h2>
+          <CardTypeCarousel
+            products={products}
+            selected={selectedProduct}
+            onSelect={(p) => { setSelectedProduct(p); setStep('amount'); }}
+          />
         </div>
       )}
 
