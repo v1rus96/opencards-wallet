@@ -208,7 +208,7 @@ export function BottomNavbar({
     const mainAnimate = useMemo(() => ({
         height: isOpen ? expandedHeight : NAV_HEIGHT,
         width: isOpen ? EXPANDED_WIDTH : COLLAPSED_WIDTH,
-        borderRadius: isOpen ? 30 : 50,
+        borderRadius: isOpen ? 40 : 50,
     }), [isOpen, expandedHeight])
 
     const navItemsAnimate = useMemo(() => ({
@@ -226,8 +226,9 @@ export function BottomNavbar({
     }), [isOpen])
 
     const ctaWrapperStyle = useMemo<React.CSSProperties>(() => ({
-        paddingLeft: 10,
-        paddingRight: 10,
+        paddingLeft: 20,
+        paddingRight: 20,
+        paddingBottom: 16,
         gap: 0,
     }), [])
 
