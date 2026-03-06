@@ -84,8 +84,22 @@ export function useWalletData() {
       }
     }
     loadData();
-    const interval = setInterval(loadData, 60000);
-    return () => clearInterval(interval);
+
+    // Pause polling when tab is hidden to save resources
+    let interval = setInterval(loadData, 60000);
+    const handleVisibility = () => {
+      clearInterval(interval);
+      if (!document.hidden) {
+        loadData(); // refresh immediately when tab becomes visible
+        interval = setInterval(loadData, 60000);
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [loadData]);
 
   return { cards, chains, spending, totalUsd, loading, error, refresh: loadData, updateSpending };

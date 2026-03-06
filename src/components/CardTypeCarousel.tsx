@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 import { SlidingNumber } from '@/components/SlidingNumber';
 
 interface Product {
@@ -85,7 +86,7 @@ function CardFace({ product, designIdx, amountValue }: { product: Product; desig
       {/* Background */}
       <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}>
         {'img' in d && d.img
-          ? <img src={d.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          ? <Image src={d.img} alt="" fill sizes="300px" style={{ objectFit: "cover" }} priority />
           : <div style={{ position: "absolute", inset: 0, width: "100%", height: "100%", background: d.bg }} />}
       </div>
 

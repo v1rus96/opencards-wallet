@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import Image from 'next/image';
 import { Loader2, CreditCard, Snowflake } from 'lucide-react';
 import { CardOrder, CardSensitive } from '@/types';
 import { getCardSensitive } from '@/lib/api';
@@ -382,7 +383,7 @@ function CardVisual({
           : isHolo
             ? <HolographicBg />
             : 'img' in d && d.img
-              ? <img src={d.img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+              ? <Image src={d.img} alt="" fill sizes="360px" style={{ objectFit: "cover" }} priority />
               : <div style={{ position: "absolute", inset: "-20%", width: "140%", height: "140%", background: d.bg, transform: "rotate(" + (ph * 15) + "deg)", transition: "transform .3s linear" }} />}
       </div>
       {/* Frozen desaturation — GPU-composited opacity instead of filter */}
@@ -393,7 +394,7 @@ function CardVisual({
         <>
           <div style={{ position: "absolute", inset: 0, background: "rgba(180,210,240,0.35)", pointerEvents: "none" }} />
           <div style={{ position: "absolute", inset: 0, borderRadius: 12, overflow: "hidden", pointerEvents: "none" }}>
-            <img src="/cqu6Rn.png" alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.7, mixBlendMode: "lighten" }} />
+            <Image src="/cqu6Rn.png" alt="" fill sizes="360px" style={{ objectFit: "cover", opacity: 0.7, mixBlendMode: "lighten" }} />
           </div>
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 3 }}>
             <button
