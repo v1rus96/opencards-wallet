@@ -147,6 +147,15 @@ export function BottomNavbar({
         bouncing.current = false
     }, [containerControls])
 
+    /* ---- Lock body scroll when drawer is open ---- */
+    useEffect(() => {
+        if (isOpen) {
+            const prev = document.body.style.overflow
+            document.body.style.overflow = "hidden"
+            return () => { document.body.style.overflow = prev }
+        }
+    }, [isOpen])
+
     /* ---- Determine CTA layout ---- */
     const ctaButtons = drawer?.ctaButtons ?? []
     const backBtn: CTAButton | null =
@@ -292,7 +301,7 @@ export function BottomNavbar({
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: step > 0 ? -30 : 0 }}
                                         transition={stepTransition}
-                                        className="absolute inset-x-0 top-0 overflow-y-auto"
+                                        className="absolute inset-x-0 top-0 overflow-hidden"
                                         style={drawerContentStyle}
                                     >
                                         <div ref={contentRef}>
