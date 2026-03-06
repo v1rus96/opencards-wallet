@@ -1,8 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect } from 'react';
-import { CreditCard, Plus, KeyRound, ChevronRight, Wallet } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Home as HomeIcon, CreditCard, ClipboardList, Settings, Plus, KeyRound, ChevronRight, Wallet } from 'lucide-react';
 import { NetworkSolana, NetworkEthereum } from '@web3icons/react';
 import { useSafeArea, useTelegram } from '@/hooks/useTelegram';
 import { useWalletData } from '@/hooks/useWalletData';
@@ -13,10 +13,10 @@ import { CoinCarousel } from '@/components/CoinCarousel';
 import { CardList } from '@/components/CardList';
 import { SpendingBudget } from '@/components/SpendingBudget';
 import { CoinDrawer } from '@/components/CoinDrawer';
-import { TabBar, TabId } from '@/components/TabBar';
+import { BottomNavbar, type CTAButton, type DrawerStep } from '@/components/bottom-navbar';
 import { SafeAreaFade } from '@/components/SafeAreaFade';
 import { OrderCard } from '@/components/OrderCard';
-import { DepositCard, DrawerAction } from '@/components/DepositCard';
+import { DepositCard, type DrawerAction } from '@/components/DepositCard';
 import { Setup } from '@/components/Setup';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { RecentActivity } from '@/components/RecentActivity';
@@ -34,16 +34,15 @@ export default function Home() {
   const safeArea = useSafeArea();
   const { haptic } = useTelegram();
   const { cards, chains, spending, totalUsd, loading, error, refresh, updateSpending } = useWalletData();
-  const [activeTab, setActiveTab] = useState<TabId>('overview');
+  const [activeTab, setActiveTab] = useState('Overview');
   const [view, setView] = useState<View>('main');
   const [depositCard, setDepositCard] = useState<(CardOrder & { liveBalance: number }) | null>(null);
-  const [isDepositOpen, setIsDepositOpen] = useState(false);
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [selectedChain, setSelectedChain] = useState<import('@/types').ChainBalance | null>(null);
   const [isCoinDrawerOpen, setIsCoinDrawerOpen] = useState(false);
   const [addresses, setAddresses] = useState({ sol: '', evm: '' });
-  const [isOrderOpen, setIsOrderOpen] = useState(false);
-  const [drawerAction, setDrawerAction] = useState<DrawerAction | null>(null);
+  const [drawerMode, setDrawerMode] = useState<'none' | 'order' | 'deposit'>('none');
+  const [drawerCTA, setDrawerCTA] = useState<DrawerAction | null>(null);
 
   useEffect(() => {
     const config = getConfig();
@@ -56,7 +55,7 @@ export default function Home() {
     }
   }, []);
 
-  const handleTab = (tab: TabId) => {
+  const handleTab = (tab: string) => {
     setActiveTab(tab);
     setView('main');
     haptic('selection');
@@ -64,9 +63,15 @@ export default function Home() {
 
   const handleDeposit = (card: CardOrder & { liveBalance: number }) => {
     setDepositCard(card);
-    setTimeout(() => setIsDepositOpen(true), 10);
+    setDrawerMode('deposit');
     haptic('medium');
   };
+
+  const handleDrawerClose = useCallback(() => {
+    setDrawerMode('none');
+    setDrawerCTA(null);
+    setTimeout(() => setDepositCard(null), 400);
+  }, []);
 
   const handleFreeze = async (card: CardOrder & { liveBalance: number }, freeze: boolean) => {
     if (freeze) {
@@ -131,7 +136,7 @@ export default function Home() {
 
             {view === 'main' && (
               <>
-                {activeTab === 'overview' && (
+                {activeTab === 'Overview' && (
                   <div className="animate-fadeIn">
                     {/* Hero: Balance + Quick Actions */}
                     <div className="group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-br from-[#0a0a0a] via-[#111] to-[#0a0a0a] p-7 shadow-2xl">
@@ -193,16 +198,16 @@ export default function Home() {
                     />
 
                     <p className="section-title">Recent Activity</p>
-                    <RecentActivity cards={cards} onViewAll={() => handleTab('history')} />
+                    <RecentActivity cards={cards} onViewAll={() => handleTab('Activity')} />
                   </div>
                 )}
 
-                {activeTab === 'cards' && (
+                {activeTab === 'Cards' && (
                   <div className="animate-fadeIn">
                     <div className="mb-3 flex items-center justify-between">
                       <p className="section-title !mt-0 !mb-0">Virtual Cards ({cards.length})</p>
                       <Button
-                        onClick={() => { setIsOrderOpen(true); haptic('medium'); }}
+                        onClick={() => { setDrawerMode('order'); haptic('medium'); }}
                         size="sm"
                         className="gap-1.5 rounded-lg text-xs font-bold active:scale-95"
                       >
@@ -213,14 +218,14 @@ export default function Home() {
                   </div>
                 )}
 
-                {activeTab === 'history' && (
+                {activeTab === 'Activity' && (
                   <div className="animate-fadeIn">
                     <p className="section-title !mt-0">Transaction History</p>
                     <TransactionHistory cards={cards} />
                   </div>
                 )}
 
-                {activeTab === 'settings' && (
+                {activeTab === 'Settings' && (
                   <div className="animate-fadeIn">
                     <p className="section-title !mt-0">Spending Controls</p>
                     <SpendingBudget config={spending} onUpdate={updateSpending} />
@@ -295,20 +300,58 @@ export default function Home() {
       </PullToRefresh>
 
       {view !== 'setup' && (
-        <TabBar
-          active={activeTab}
-          onSelect={handleTab}
-          bottomInset={safeArea.bottom}
-          actionButton={activeTab === 'cards' && view === 'main' ? {
-            icon: <Plus size={24} strokeWidth={2.5} />,
-            onClick: () => { setIsOrderOpen(true); haptic('medium'); },
+        <BottomNavbar
+          navItems={[
+            { icon: HomeIcon, label: 'Overview' },
+            { icon: CreditCard, label: 'Cards' },
+            { icon: ClipboardList, label: 'Activity' },
+            { icon: Settings, label: 'Settings' },
+          ]}
+          activeTab={activeTab}
+          onTabChange={handleTab}
+          actionButton={activeTab === 'Cards' && view === 'main' ? {
+            icon: Plus,
+            label: 'New Card',
+            onClick: () => { setDrawerMode('order'); haptic('medium'); },
           } : undefined}
-          morphedButton={drawerAction ? {
-            label: drawerAction.label,
-            onClick: () => drawerAction.perform(),
-            disabled: drawerAction.disabled,
-            onBack: drawerAction.onBack,
-          } : undefined}
+          drawer={{
+            steps: drawerMode === 'order' ? [{
+              title: '',
+              content: (
+                <OrderCard
+                  onBack={handleDrawerClose}
+                  onSuccess={() => { handleOrderSuccess(); handleDrawerClose(); }}
+                  onActionButton={setDrawerCTA}
+                />
+              ),
+            }] : drawerMode === 'deposit' && depositCard ? [{
+              title: '',
+              content: (
+                <DepositCard
+                  card={depositCard}
+                  onBack={handleDrawerClose}
+                  onSuccess={() => { handleOrderSuccess(); handleDrawerClose(); }}
+                  onActionButton={setDrawerCTA}
+                />
+              ),
+            }] : [],
+            ctaButtons: drawerCTA ? [
+              ...(drawerCTA.onBack ? [{
+                label: 'Back',
+                variant: 'secondary' as const,
+                onClick: drawerCTA.onBack,
+              }] : []),
+              {
+                label: drawerCTA.label,
+                onClick: () => drawerCTA.perform(),
+                disabled: drawerCTA.disabled,
+              },
+            ] : [],
+            isOpen: drawerMode !== 'none',
+            onOpenChange: (open: boolean) => { if (!open) handleDrawerClose(); },
+            currentStep: 0,
+            onStepChange: () => {},
+          }}
         />
       )}
 
@@ -322,51 +365,7 @@ export default function Home() {
             : addresses.evm
         }
         onClose={() => { setIsCoinDrawerOpen(false); setTimeout(() => setSelectedChain(null), 300); }}
-        onActionButton={isCoinDrawerOpen ? setDrawerAction : undefined}
       />
-
-      {/* Deposit Bottom Sheet Overlay */}
-      <div
-        className={`fixed inset-0 z-40 flex flex-col justify-end transition-all duration-300 ${isDepositOpen ? 'visible bg-black/60' : 'invisible bg-transparent'}`}
-        onClick={() => { setIsDepositOpen(false); setTimeout(() => setDepositCard(null), 300); }}
-      >
-        <div
-          className={`relative max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-zinc-950 px-4 pb-28 pt-6 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isDepositOpen ? 'translate-y-0' : 'translate-y-full'}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-zinc-800" />
-
-          {depositCard && (
-            <DepositCard
-              card={depositCard}
-              onBack={() => { setIsDepositOpen(false); setTimeout(() => setDepositCard(null), 300); }}
-              onSuccess={() => { handleOrderSuccess(); setIsDepositOpen(false); setTimeout(() => setDepositCard(null), 300); }}
-              onActionButton={isDepositOpen ? setDrawerAction : undefined}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Order Card Bottom Sheet Overlay */}
-      <div
-        className={`fixed inset-0 z-40 flex flex-col justify-end transition-all duration-300 ${isOrderOpen ? 'visible bg-black/60' : 'invisible bg-transparent'}`}
-        onClick={() => setIsOrderOpen(false)}
-      >
-        <div
-          className={`relative max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-zinc-950 px-4 pb-28 pt-6 transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${isOrderOpen ? 'translate-y-0' : 'translate-y-full'}`}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="mx-auto mb-6 h-1 w-12 rounded-full bg-zinc-800" />
-
-          {isOrderOpen && (
-            <OrderCard
-              onBack={() => setIsOrderOpen(false)}
-              onSuccess={() => { handleOrderSuccess(); setIsOrderOpen(false); }}
-              onActionButton={isOrderOpen ? setDrawerAction : undefined}
-            />
-          )}
-        </div>
-      </div>
     </div>
   );
 }
