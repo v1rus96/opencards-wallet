@@ -6,7 +6,6 @@ import { CreditCard, ChevronLeft, Loader2, CheckCircle2, XCircle, Wallet } from 
 import { TokenUSDC } from '@web3icons/react';
 import { getProducts, getPaymentWalletBalance, orderCard } from '@/lib/payment';
 import { CardTypeCarousel } from '@/components/CardTypeCarousel';
-import { SlidingNumber } from '@/components/SlidingNumber';
 
 
 interface Product {
@@ -26,20 +25,19 @@ interface Props {
   onActionButton?: (action: DrawerAction | null) => void;
 }
 
-type Step = 'product' | 'amount' | 'confirm' | 'processing' | 'success' | 'error';
+/* 'select' merges old 'product' + 'amount' into one visual step */
+type Step = 'select' | 'confirm' | 'processing' | 'success' | 'error';
 
 export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
-  const [step, setStep] = useState<Step>('product');
+  const [step, setStep] = useState<Step>('select');
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [amount, setAmount] = useState('25');
   const [walletBalance, setWalletBalance] = useState({ solana: 0, base: 0 });
   const [result, setResult] = useState<{ order?: { id: string; last4?: string }; error?: string } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [scanProgress, setScanProgress] = useState(0);
 
-  // Piecewise slider: more space for lower values, less for higher
-  // $20–$200 → 50% of track, $200–$1000 → 30%, $1000–$10000 → 20%
+  // Piecewise slider
   const SLIDER_TICKS = 1000;
   const BREAKPOINTS = [
     { dollar: 20,    tick: 0 },
@@ -73,7 +71,6 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
     return BREAKPOINTS[BREAKPOINTS.length - 1].tick;
   }, []);
 
-  // Haptic feedback — fire on every value change
   const lastHapticVal = useRef(Number(amount));
   const hapticRef = useRef((val: number) => {
     if (val !== lastHapticVal.current) {
@@ -93,15 +90,6 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
       wa?.HapticFeedback?.impactOccurred?.('light');
     } catch { /* */ }
   }, []);
-
-  // Map steps to scan progress — CardScanAnimation handles smooth interpolation
-  const stepProgress: Record<Step, number> = {
-    product: 0, amount: 33, confirm: 66, processing: 90, success: 100, error: 66,
-  };
-
-  useEffect(() => {
-    setScanProgress(stepProgress[step]);
-  }, [step]);
 
   useEffect(() => {
     let mounted = true;
@@ -127,7 +115,6 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
   const totalUsdc = walletBalance.solana + walletBalance.base;
   const cardFee = parseFloat(selectedProduct?.cardPrice || '0');
   const depositAmount = parseFloat(amount || '0');
-  // x402 charges the deposit amount; card fee is deducted from deposit by the issuer
   const totalCharge = depositAmount;
   const canAfford = totalUsdc >= totalCharge;
 
@@ -151,8 +138,8 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
 
   // Expose current action to parent (for morphed nav button)
   const performRef = useRef<() => void>(() => {});
-  if (step === 'product') performRef.current = () => onBack();
-  else if (step === 'amount') performRef.current = () => setStep('confirm');
+  if (step === 'select' && !selectedProduct) performRef.current = () => onBack();
+  else if (step === 'select' && selectedProduct) performRef.current = () => setStep('confirm');
   else if (step === 'confirm') performRef.current = handleConfirm;
   else if (step === 'success') performRef.current = () => { onSuccess(); onBack(); };
   else if (step === 'error') performRef.current = () => setStep('confirm');
@@ -160,24 +147,41 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
 
   useEffect(() => {
     if (!onActionButton) return;
-    const labels: Record<string, string> = {
-      product: 'Cancel', amount: 'Continue', confirm: 'Pay & Order', success: 'Done', error: 'Try Again',
-    };
-    const label = labels[step];
-    if (!label) { onActionButton(null); return; }
-    const backActions: Record<string, (() => void) | undefined> = {
-      amount: () => setStep('product'),
-      confirm: () => setStep('amount'),
-      error: () => setStep('confirm'),
-    };
-    onActionButton({
-      label,
-      disabled: step === 'amount'
-        ? !amount || parseFloat(amount) < Number(selectedProduct?.depositMin || '0')
-        : step === 'confirm' ? !canAfford : false,
-      perform: () => performRef.current(),
-      onBack: backActions[step],
-    });
+
+    if (step === 'select') {
+      if (!selectedProduct) {
+        onActionButton({
+          label: 'Cancel',
+          disabled: false,
+          perform: () => performRef.current(),
+          onBack: undefined,
+        });
+      } else {
+        onActionButton({
+          label: 'Continue',
+          disabled: !amount || parseFloat(amount) < Number(selectedProduct.depositMin),
+          perform: () => performRef.current(),
+          onBack: () => setSelectedProduct(null),
+        });
+      }
+    } else {
+      const labels: Record<string, string> = {
+        confirm: 'Pay & Order', success: 'Done', error: 'Try Again',
+      };
+      const label = labels[step];
+      if (!label) { onActionButton(null); return; }
+      const backActions: Record<string, (() => void) | undefined> = {
+        confirm: () => setStep('select'),
+        error: () => setStep('confirm'),
+      };
+      onActionButton({
+        label,
+        disabled: step === 'confirm' ? !canAfford : false,
+        perform: () => performRef.current(),
+        onBack: backActions[step],
+      });
+    }
+
     return () => onActionButton(null);
   }, [step, amount, canAfford, onActionButton, selectedProduct]);
 
@@ -198,88 +202,84 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
         </button>
       )}
 
-      {/* Card scan progress indicator — temporarily hidden for perf testing */}
-      {/* <div className="mx-auto mb-5 w-3/4">
-        <CardScanAnimation progress={scanProgress}>
-          <OrderCardPreview />
-        </CardScanAnimation>
-      </div> */}
+      {/* Step: Select card + Amount (merged) */}
+      {step === 'select' && (
+        <div>
+          {!selectedProduct && (
+            <h2 className="mb-4 text-lg font-bold text-center">Select Card Type</h2>
+          )}
 
-      {/* Step: Select Product */}
-      {step === 'product' && (
-        <div className="animate-fadeIn">
-          <h2 className="mb-4 text-lg font-bold text-center">Select Card Type</h2>
+          {/* Carousel stays mounted — collapses when product is selected */}
           <CardTypeCarousel
             products={products}
             selected={selectedProduct}
-            onSelect={(p) => { setSelectedProduct(p); setStep('amount'); }}
+            onSelect={(p) => setSelectedProduct(p)}
+            collapsed={selectedProduct !== null}
+            amountValue={selectedProduct ? Number(amount) : undefined}
           />
-        </div>
-      )}
 
-      {/* Step: Enter Amount */}
-      {step === 'amount' && selectedProduct && (
-        <div className="animate-fadeIn">
-          <h2 className="mb-1 text-lg font-bold">Card Amount</h2>
-          <p className="mb-5 text-xs text-zinc-500">
-            {selectedProduct.organization} {selectedProduct.type} · Fee: ${selectedProduct.cardPrice}
-          </p>
-
-          {/* Amount display */}
-          <div className="mb-6 text-center">
-            <span className="font-mono text-5xl font-extrabold text-white">$<SlidingNumber value={Number(amount)} /></span>
-          </div>
-
-          {/* Slider — logarithmic scale for precision at low values */}
-          <div className="mb-3 px-1">
-            <input
-              type="range"
-              min={0}
-              max={SLIDER_TICKS}
-              step={1}
-              value={amountToSlider(Number(amount))}
-              onChange={e => {
-                const dollars = sliderToAmount(Number(e.target.value));
-                const str = String(dollars);
-                if (str !== amount) {
-                  setAmount(str);
-                  hapticRef.current(dollars);
-                }
+          {/* Amount controls — appear when product is selected */}
+          {selectedProduct && (
+            <div
+              key="amount-controls"
+              style={{
+                opacity: 1,
+                transform: 'translate3d(0,0,0)',
+                animation: 'fadeSlideIn 0.35s cubic-bezier(0.25,1,0.5,1)',
               }}
-              className="amount-slider w-full"
-              style={{ '--val': `${(amountToSlider(Number(amount)) / SLIDER_TICKS) * 100}%` } as React.CSSProperties}
-            />
-            <div className="mt-2 flex justify-between text-xs text-zinc-500">
-              <span>$20</span>
-              <span>$10,000</span>
-            </div>
-          </div>
-
-          {/* Quick amounts */}
-          <div className="mb-5 flex gap-2">
-            {[25, 50, 100, 500, 1000].map(v => (
-              <button
-                key={v}
-                onClick={() => { setAmount(String(v)); hapticTick(); }}
-                className={`flex-1 rounded-lg border py-2 text-xs font-semibold transition-all ${
-                  amount === String(v)
-                    ? 'border-primary/30 bg-primary/10 text-primary'
-                    : 'border-zinc-700 bg-zinc-800 text-zinc-400'
-                }`}
-              >
-                ${v >= 1000 ? `${v / 1000}k` : v}
-              </button>
-            ))}
-          </div>
-
-          {!onActionButton && (
-            <button
-              onClick={() => setStep('confirm')}
-              disabled={!amount || parseFloat(amount) < Number(selectedProduct.depositMin)}
-              className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
             >
-              Continue
-            </button>
+              {/* Slider */}
+              <div className="mb-3 px-1">
+                <input
+                  type="range"
+                  min={0}
+                  max={SLIDER_TICKS}
+                  step={1}
+                  value={amountToSlider(Number(amount))}
+                  onChange={e => {
+                    const dollars = sliderToAmount(Number(e.target.value));
+                    const str = String(dollars);
+                    if (str !== amount) {
+                      setAmount(str);
+                      hapticRef.current(dollars);
+                    }
+                  }}
+                  className="amount-slider w-full"
+                  style={{ '--val': `${(amountToSlider(Number(amount)) / SLIDER_TICKS) * 100}%` } as React.CSSProperties}
+                />
+                <div className="mt-2 flex justify-between text-xs text-zinc-500">
+                  <span>$20</span>
+                  <span>$10,000</span>
+                </div>
+              </div>
+
+              {/* Quick amounts */}
+              <div className="mb-2 flex gap-2">
+                {[25, 50, 100, 500, 1000].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => { setAmount(String(v)); hapticTick(); }}
+                    className={`flex-1 rounded-lg border py-2 text-xs font-semibold transition-all ${
+                      amount === String(v)
+                        ? 'border-primary/30 bg-primary/10 text-primary'
+                        : 'border-zinc-700 bg-zinc-800 text-zinc-400'
+                    }`}
+                  >
+                    ${v >= 1000 ? `${v / 1000}k` : v}
+                  </button>
+                ))}
+              </div>
+
+              {!onActionButton && (
+                <button
+                  onClick={() => setStep('confirm')}
+                  disabled={!amount || parseFloat(amount) < Number(selectedProduct.depositMin)}
+                  className="w-full rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground transition-all active:scale-[0.98] disabled:opacity-40"
+                >
+                  Continue
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -287,7 +287,14 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
       {/* Step: Confirm */}
       {step === 'confirm' && selectedProduct && (
         <div className="animate-fadeIn">
-          <h2 className="mb-5 text-lg font-bold">Confirm Order</h2>
+          {/* Card preview */}
+          <CardTypeCarousel
+            products={products}
+            selected={selectedProduct}
+            onSelect={() => {}}
+            collapsed
+            amountValue={Number(amount)}
+          />
 
           <div className="mb-4 space-y-3">
             <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
@@ -295,10 +302,6 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
                 <CreditCard size={12} /> Order Summary
               </div>
               <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-400">Card</span>
-                  <span className="font-semibold">{selectedProduct.organization} {selectedProduct.type}</span>
-                </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-zinc-400">Deposit</span>
                   <span className="font-semibold">${depositAmount.toFixed(2)}</span>
@@ -360,7 +363,7 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
           {!onActionButton && (
             <div className="flex gap-2">
               <button
-                onClick={() => setStep('amount')}
+                onClick={() => setStep('select')}
                 className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98]"
               >
                 Back
