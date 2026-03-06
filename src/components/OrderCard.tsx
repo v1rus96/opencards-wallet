@@ -199,12 +199,12 @@ export function OrderCard({ onBack, onSuccess, onActionButton }: Props) {
         </button>
       )}
 
-      {/* Card scan progress indicator */}
-      <div className="mx-auto mb-5 w-3/4">
+      {/* Card scan progress indicator — temporarily hidden for perf testing */}
+      {/* <div className="mx-auto mb-5 w-3/4">
         <CardScanAnimation progress={scanProgress}>
           <OrderCardPreview />
         </CardScanAnimation>
-      </div>
+      </div> */}
 
       {/* Step: Select Product */}
       {step === 'product' && (
