@@ -24,9 +24,6 @@ const EXPANDED_WIDTH = `calc(100vw - ${SIDE_INSET * 2}px)`
 /* ---- static styles (avoid re-creating objects every render) ---- */
 const backdropStyle: React.CSSProperties = {
     background: "rgba(0,0,0,0.55)",
-    backdropFilter: "blur(4px)",
-    WebkitBackdropFilter: "blur(4px)",
-    transform: "translateZ(0)",
 }
 
 const fixedWrapperStyle: React.CSSProperties = {
