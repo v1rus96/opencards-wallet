@@ -50,7 +50,7 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
   const [dragPx, setDragPx] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [settling, setSettling] = useState(false);
-  const touch = useRef({ x: 0, y: 0, horizontal: null as boolean | null });
+  const touch = useRef({ x: 0, y: 0, horizontal: null as boolean | null, swiped: false });
 
   let progress = current;
   if (dragging && touch.current.horizontal) {
@@ -63,7 +63,6 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
 
   const snapTo = (idx: number) => {
     setCurrent(idx);
-    onSelect(products[idx]);
     try {
       const wa = (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: { selectionChanged: () => void } } } }).Telegram?.WebApp;
       wa?.HapticFeedback?.selectionChanged();
@@ -71,7 +70,7 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, horizontal: null };
+    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, horizontal: null, swiped: false };
     setDragging(true);
     setDragPx(0);
   };
@@ -82,7 +81,10 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
     if (touch.current.horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
       touch.current.horizontal = Math.abs(dx) > Math.abs(dy);
     }
-    if (touch.current.horizontal) setDragPx(dx);
+    if (touch.current.horizontal) {
+      setDragPx(dx);
+      touch.current.swiped = true;
+    }
   };
 
   const endDrag = () => {
@@ -126,7 +128,7 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
             <div
               key={product.id}
               className="absolute"
-              onClick={() => active && onSelect(product)}
+              onClick={() => { if (active && !touch.current.swiped) onSelect(product); }}
               style={{
                 width: W,
                 height: H,
