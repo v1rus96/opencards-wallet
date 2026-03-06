@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { CreditCard } from 'lucide-react';
 
 interface Product {
@@ -42,6 +42,9 @@ function interp(t: number, inR: number[], outR: number[]): number {
   return outR[outR.length - 1];
 }
 
+/* Settle transition — only on transform+opacity, GPU-compositable */
+const SETTLE_TRANSITION = 'transform 0.35s cubic-bezier(0.25,1,0.5,1), opacity 0.25s ease';
+
 export function CardTypeCarousel({ products, selected, onSelect }: Props) {
   const [current, setCurrent] = useState(() => {
     const idx = selected ? products.findIndex(p => p.id === selected.id) : 0;
@@ -61,21 +64,21 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
     progress = current + d;
   }
 
-  const snapTo = (idx: number) => {
+  const snapTo = useCallback((idx: number) => {
     setCurrent(idx);
     try {
       const wa = (window as unknown as { Telegram?: { WebApp?: { HapticFeedback?: { selectionChanged: () => void } } } }).Telegram?.WebApp;
       wa?.HapticFeedback?.selectionChanged();
     } catch { /* */ }
-  };
+  }, []);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, horizontal: null, swiped: false };
     setDragging(true);
     setDragPx(0);
-  };
+  }, []);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const dx = e.touches[0].clientX - touch.current.x;
     const dy = e.touches[0].clientY - touch.current.y;
     if (touch.current.horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
@@ -85,26 +88,22 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
       setDragPx(dx);
       touch.current.swiped = true;
     }
-  };
+  }, []);
 
-  const endDrag = () => {
+  const endDrag = useCallback(() => {
     if (touch.current.horizontal) {
       const threshold = W / 4;
       if (dragPx < -threshold && current < products.length - 1) snapTo(current + 1);
       else if (dragPx > threshold && current > 0) snapTo(current - 1);
       setSettling(true);
-      setTimeout(() => setSettling(false), 450);
+      setTimeout(() => setSettling(false), 380);
     }
     setDragging(false);
     setDragPx(0);
     touch.current.horizontal = null;
-  };
+  }, [dragPx, current, products.length, snapTo]);
 
-  const transition = dragging
-    ? 'none'
-    : settling
-      ? 'transform 0.4s cubic-bezier(0.25,1,0.5,1), opacity 0.3s ease'
-      : 'none';
+  const transition = dragging ? 'none' : settling ? SETTLE_TRANSITION : 'none';
 
   return (
     <div
@@ -118,11 +117,16 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
       <div className="absolute inset-x-0 top-0 flex justify-center" style={{ height: H }}>
         {products.map((product, i) => {
           const off = i - progress;
+          const absOff = Math.abs(off);
+
+          /* Skip rendering cards that are far off-screen */
+          if (absOff > 2.5) return null;
+
           const scale = interp(off, [-2, -1, 0, 1, 2], [0.75, 0.85, 1.0, 1.15, 1.15]);
           const ty    = interp(off, [-2, -1, 0, 1, 2], [55,   30,   0,  -80,  -80]);
           const op    = interp(off, [-2, -1, 0, 1, 2], [1.0,  1.0,  1.0, 0,    0]);
           const rotX  = interp(off, [-2, -1, 0, 1, 2], [35,   20,   0,   0,    0]);
-          const active = Math.abs(off) < 0.5;
+          const active = absOff < 0.5;
 
           return (
             <div
@@ -132,51 +136,40 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
               style={{
                 width: W,
                 height: H,
-                perspective: 600,
-                zIndex: Math.round(100 - Math.abs(off) * 10),
+                zIndex: Math.round(100 - absOff * 10),
                 opacity: Math.max(0, Math.min(1, op)),
-                transform: `translateY(${ty}px) scale(${scale})`,
+                /* Use translate3d for GPU-only compositing path */
+                transform: `translate3d(0,${ty}px,0) scale(${scale}) rotateX(${rotX}deg)`,
+                transformOrigin: 'center bottom',
                 transition,
-                willChange: 'transform, opacity',
                 cursor: active ? 'pointer' : 'default',
               }}
             >
               <div
+                className="relative h-full w-full overflow-hidden rounded-2xl border border-white/[0.08] p-5"
                 style={{
-                  width: '100%',
-                  height: '100%',
-                  transform: `rotateX(${rotX}deg)`,
-                  transformOrigin: 'center bottom',
-                  transition,
+                  background: GRADIENTS[i % GRADIENTS.length],
+                  boxShadow: active
+                    ? '0 4px 24px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3)'
+                    : '0 2px 12px rgba(0,0,0,0.3)',
                 }}
               >
-                <div
-                  className="relative h-full w-full overflow-hidden rounded-2xl border border-white/[0.08] p-5"
-                  style={{
-                    background: GRADIENTS[i % GRADIENTS.length],
-                    boxShadow: '0 4px 24px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3)',
-                  }}
-                >
-                  <div className="pointer-events-none absolute -top-10 -right-10 h-28 w-28 rounded-full bg-white/[0.05] blur-2xl" />
-                  <div className="pointer-events-none absolute -bottom-8 -left-8 h-20 w-20 rounded-full bg-white/[0.03] blur-2xl" />
-
-                  <div className="relative z-10 flex h-full flex-col justify-between">
-                    <div className="flex items-start justify-between">
-                      <CreditCard size={28} className="text-white/60" />
-                      <span className="rounded-full border border-white/[0.08] bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-semibold text-zinc-400">
-                        {product.category}
+                <div className="relative z-10 flex h-full flex-col justify-between">
+                  <div className="flex items-start justify-between">
+                    <CreditCard size={28} className="text-white/60" />
+                    <span className="rounded-full border border-white/[0.08] bg-white/[0.05] px-2.5 py-0.5 text-[10px] font-semibold text-zinc-400">
+                      {product.category}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">{product.organization} {product.type}</p>
+                    <div className="mt-1 flex items-baseline gap-3">
+                      <span className="text-xs text-zinc-400">
+                        Fee: <span className="font-semibold text-zinc-300">${product.cardPrice}</span>
                       </span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">{product.organization} {product.type}</p>
-                      <div className="mt-1 flex items-baseline gap-3">
-                        <span className="text-xs text-zinc-400">
-                          Fee: <span className="font-semibold text-zinc-300">${product.cardPrice}</span>
-                        </span>
-                        <span className="text-xs text-zinc-500">
-                          ${product.depositMin} – ${Number(product.depositMax).toLocaleString()}
-                        </span>
-                      </div>
+                      <span className="text-xs text-zinc-500">
+                        ${product.depositMin} – ${Number(product.depositMax).toLocaleString()}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -193,12 +186,13 @@ export function CardTypeCarousel({ products, selected, onSelect }: Props) {
             return (
               <div
                 key={i}
-                className="rounded-full transition-all duration-300"
+                className="rounded-full"
                 style={{
                   width: 7,
                   height: 7,
                   background: active ? 'rgba(255,255,255,0.8)' : 'rgba(255,255,255,0.15)',
                   transform: `scale(${active ? 1 : 0.75})`,
+                  transition: 'background 0.2s, transform 0.2s',
                 }}
               />
             );
