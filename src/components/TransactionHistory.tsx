@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, CircleDot, ClipboardList, ShieldCheck } from 'lucide-react';
 import { CardOrder } from '@/types';
 import { getAllCardTransactions, type CardTransaction } from '@/lib/api';
+import { TransactionDetail, type TxDetailData } from './TransactionDetail';
 
 interface Props {
   cards: (CardOrder & { liveBalance: number })[];
@@ -14,13 +15,18 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
   const [transactions, setTransactions] = useState<CardTransaction[]>([]);
   const [selectedCard, setSelectedCard] = useState<string>('all');
   const [loading, setLoading] = useState(true);
+  const [selectedTx, setSelectedTx] = useState<CardTransaction | null>(null);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
     try {
-      const cardId = selectedCard !== 'all'
-        ? cards.find(c => c.last4 === selectedCard)?.id
-        : undefined;
+      // When hideFilter is true (single card view), use the first card's ID directly
+      let cardId: string | undefined;
+      if (hideFilter && cards.length === 1) {
+        cardId = cards[0].id;
+      } else if (selectedCard !== 'all') {
+        cardId = cards.find(c => c.last4 === selectedCard)?.id;
+      }
       const { transactions: txs } = await getAllCardTransactions({
         cardId,
         limit: 100,
@@ -31,7 +37,7 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [cards, selectedCard]);
+  }, [cards, selectedCard, hideFilter]);
 
   useEffect(() => {
     if (cards.length > 0) loadTransactions();
@@ -119,7 +125,8 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
             return (
               <div
                 key={tx.id}
-                className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 p-3.5"
+                onClick={() => setSelectedTx(tx)}
+                className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 cursor-pointer transition-colors active:bg-zinc-800"
               >
                 <div className={`mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${cls}`}>
                   {icon}
@@ -149,6 +156,28 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
             );
           })}
         </div>
+      )}
+
+      {/* Transaction detail sheet */}
+      {selectedTx && (
+        <TransactionDetail
+          tx={{
+            id: selectedTx.id,
+            source: 'card',
+            label: labelForType(selectedTx),
+            sublabel: `•••• ${selectedTx.card_last4}`,
+            amount: Math.abs(selectedTx.amount),
+            symbol: 'USD',
+            isPositive: selectedTx.type.toLowerCase().includes('deposit') || selectedTx.type.toLowerCase().includes('card_create'),
+            timestamp: selectedTx.transaction_time ? new Date(selectedTx.transaction_time).getTime() : new Date(selectedTx.created_at).getTime(),
+            iconType: (() => { const t = selectedTx.type.toLowerCase(); if (t.includes('card_create')) return 'card'; if (t.includes('deposit')) return 'deposit'; if (t.includes('withdraw')) return 'withdraw'; if (t === 'freeze') return 'freeze'; if (t === 'unfreeze') return 'unfreeze'; return 'other'; })(),
+            status: selectedTx.status,
+            card_last4: selectedTx.card_last4,
+            fee: selectedTx.fee,
+            type: selectedTx.type,
+          } as TxDetailData}
+          onClose={() => setSelectedTx(null)}
+        />
       )}
     </div>
   );

@@ -30,7 +30,7 @@ type View = 'main' | 'setup';
 export default function Home() {
   const safeArea = useSafeArea();
   const { haptic } = useTelegram();
-  const { cards, chains, spending, totalUsd, loading, error, refresh, updateSpending } = useWalletData();
+  const { cards, chains, spending, totalUsd, loading, error, refresh, updateSpending, realtimeEvent } = useWalletData();
   const [activeTab, setActiveTab] = useState('Overview');
   const [view, setView] = useState<View>('main');
   const [depositCard, setDepositCard] = useState<(CardOrder & { liveBalance: number }) | null>(null);
@@ -184,7 +184,7 @@ export default function Home() {
                     />
 
                     <p className="section-title">Recent Activity</p>
-                    <RecentActivity cards={cards} />
+                    <RecentActivity cards={cards} refreshKey={realtimeEvent} />
                   </div>
                 )}
 

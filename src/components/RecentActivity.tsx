@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, CircleDot, ChevronRight, Repeat, ShieldCheck, ShieldOff } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, CircleDot, ChevronRight, Repeat, ShieldCheck } from 'lucide-react';
 import { CardOrder } from '@/types';
 import { getAllCardTransactions, getOnchainTransactions, type CardTransaction, type OnchainTransaction } from '@/lib/api';
+import { TransactionDetail, type TxDetailData } from './TransactionDetail';
 
 /** Unified transaction item for display */
 interface DisplayTx {
@@ -17,11 +18,21 @@ interface DisplayTx {
   timestamp: number;
   iconType: 'deposit' | 'withdraw' | 'send' | 'swap' | 'card' | 'freeze' | 'unfreeze' | 'receive' | 'other';
   status?: string;
+  // Detail fields
+  card_last4?: string;
+  fee?: number;
+  type?: string;
+  tx_hash?: string;
+  from_address?: string;
+  to_address?: string;
+  network?: string;
+  memo?: string;
 }
 
 interface Props {
   cards: (CardOrder & { liveBalance: number })[];
   onViewAll?: () => void;
+  refreshKey?: number; // bump to force re-fetch (e.g. from realtime events)
 }
 
 function getIcon(type: DisplayTx['iconType']) {
@@ -82,9 +93,10 @@ function shortenAddress(addr: string): string {
   return addr.slice(0, 6) + '...' + addr.slice(-4);
 }
 
-export function RecentActivity({ cards, onViewAll }: Props) {
+export function RecentActivity({ cards, onViewAll, refreshKey }: Props) {
   const [transactions, setTransactions] = useState<DisplayTx[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTx, setSelectedTx] = useState<DisplayTx | null>(null);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
@@ -110,12 +122,15 @@ export function RecentActivity({ cards, onViewAll }: Props) {
             timestamp: ts,
             iconType,
             status: tx.status,
+            card_last4: tx.card_last4,
+            fee: tx.fee,
+            type: tx.type,
           };
         })
       ).catch(() => [] as DisplayTx[]);
 
       // Fetch onchain transactions
-      const onchainPromise = getOnchainTransactions(10, { sync: false }).then(txs =>
+      const onchainPromise = getOnchainTransactions(10, { sync: true, network: 'solana-devnet' }).then(txs =>
         txs.map((rawTx: OnchainTransaction) => {
           const tx = rawTx as unknown as Record<string, unknown>;
           const type = String(tx.type || 'send').toLowerCase();
@@ -145,6 +160,12 @@ export function RecentActivity({ cards, onViewAll }: Props) {
             timestamp: isNaN(ts) ? 0 : ts,
             iconType,
             status: String(tx.status || ''),
+            tx_hash: String(tx.tx_hash || ''),
+            from_address: from,
+            to_address: to,
+            network: String(tx.network || ''),
+            memo: String(tx.memo || ''),
+            type: type,
           };
         })
       ).catch(() => [] as DisplayTx[]);
@@ -166,10 +187,10 @@ export function RecentActivity({ cards, onViewAll }: Props) {
     loadTransactions();
   }, [loadTransactions]);
 
-  // Re-fetch when cards change (triggered by realtime)
+  // Re-fetch when cards change or refreshKey bumps (realtime events)
   useEffect(() => {
-    if (cards.length > 0) loadTransactions();
-  }, [cards.length, loadTransactions]);
+    if (cards.length > 0 || refreshKey) loadTransactions();
+  }, [cards.length, refreshKey, loadTransactions]);
 
   if (loading) {
     return (
@@ -200,7 +221,8 @@ export function RecentActivity({ cards, onViewAll }: Props) {
         return (
           <div
             key={tx.id}
-            className={`relative z-10 flex items-center px-4 py-3 ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
+            onClick={() => setSelectedTx(tx)}
+            className={`relative z-10 flex items-center px-4 py-3 cursor-pointer transition-colors active:bg-white/[0.03] ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
           >
             <div className={`mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${cls}`}>
               {icon}
@@ -237,6 +259,14 @@ export function RecentActivity({ cards, onViewAll }: Props) {
         >
           View All <ChevronRight size={14} />
         </button>
+      )}
+
+      {/* Transaction detail sheet */}
+      {selectedTx && (
+        <TransactionDetail
+          tx={selectedTx as TxDetailData}
+          onClose={() => setSelectedTx(null)}
+        />
       )}
     </div>
   );

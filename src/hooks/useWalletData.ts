@@ -140,5 +140,5 @@ export function useWalletData() {
     };
   }, [loadData]);
 
-  return { cards, chains, spending, totalUsd, loading, error, refresh: loadData, updateSpending };
+  return { cards, chains, spending, totalUsd, loading, error, refresh: loadData, updateSpending, realtimeEvent };
 }
