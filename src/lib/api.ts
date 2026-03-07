@@ -217,15 +217,19 @@ export async function sendTokens(params: SendTokensParams): Promise<SendTokensRe
 export interface OnchainTransaction {
   id: string;
   type: string;
-  token: string;
+  token_symbol: string;
   amount: number;
   network: string;
-  to?: string;
-  from?: string;
+  to_address?: string;
+  from_address?: string;
   tx_hash?: string;
   status: string;
   memo?: string;
   created_at: string;
+  // Aliases for backward compat
+  token?: string;
+  to?: string;
+  from?: string;
 }
 
 export async function getOnchainTransactions(limit = 10, opts?: { sync?: boolean; network?: string }): Promise<OnchainTransaction[]> {

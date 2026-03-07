@@ -131,15 +131,13 @@ export function RecentActivity({ cards, onViewAll, refreshKey }: Props) {
 
       // Fetch onchain transactions
       const onchainPromise = getOnchainTransactions(10, { sync: true, network: 'solana-devnet' }).then(txs =>
-        txs.map((rawTx: OnchainTransaction) => {
-          const tx = rawTx as unknown as Record<string, unknown>;
-          const type = String(tx.type || 'send').toLowerCase();
-          const token = String(tx.token || tx.token_symbol || tx.currency || tx.symbol || '');
-          const to = String(tx.to || tx.to_address || tx.destination || '');
-          const from = String(tx.from || tx.from_address || '');
-          const amount = typeof tx.amount === 'number' ? tx.amount : parseFloat(String(tx.amount)) || 0;
-          const createdAt = String(tx.created_at || tx.createdAt || tx.timestamp || '');
-          const ts = createdAt ? new Date(createdAt).getTime() : 0;
+        txs.map((tx: OnchainTransaction) => {
+          const type = (tx.type || 'send').toLowerCase();
+          const token = tx.token_symbol || tx.token || '';
+          const to = tx.to_address || tx.to || '';
+          const from = tx.from_address || tx.from || '';
+          const amount = tx.amount || 0;
+          const ts = tx.created_at ? new Date(tx.created_at).getTime() : 0;
           const iconType = classifyOnchainType(type);
 
           const label = type === 'send' ? `Sent ${token}`
@@ -148,23 +146,23 @@ export function RecentActivity({ cards, onViewAll, refreshKey }: Props) {
             : `${type} ${token}`;
 
           return {
-            id: String(tx.id || Math.random()),
+            id: tx.id,
             source: 'onchain' as const,
             label: label.trim() || 'Transaction',
             sublabel: type === 'receive'
               ? `← ${shortenAddress(from)}`
-              : to ? `→ ${shortenAddress(to)}` : String(tx.network || ''),
+              : to ? `→ ${shortenAddress(to)}` : tx.network || '',
             amount,
             symbol: token,
             isPositive: type === 'receive',
             timestamp: isNaN(ts) ? 0 : ts,
             iconType,
-            status: String(tx.status || ''),
-            tx_hash: String(tx.tx_hash || ''),
+            status: tx.status || '',
+            tx_hash: tx.tx_hash || '',
             from_address: from,
             to_address: to,
-            network: String(tx.network || ''),
-            memo: String(tx.memo || ''),
+            network: tx.network || '',
+            memo: tx.memo || '',
             type: type,
           };
         })
