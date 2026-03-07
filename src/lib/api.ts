@@ -97,6 +97,33 @@ export async function unfreezeCard(orderId: string) {
   return apiPost(`/cards/orders/${orderId}/unfreeze`);
 }
 
+/** Fast unified card transactions from DB (replaces per-card Wasabi calls) */
+export async function getAllCardTransactions(opts?: {
+  cardId?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ transactions: CardTransaction[]; total: number }> {
+  const params = new URLSearchParams();
+  if (opts?.cardId) params.set('card_id', opts.cardId);
+  if (opts?.limit) params.set('limit', String(opts.limit));
+  if (opts?.offset) params.set('offset', String(opts.offset));
+  const data = await apiGet(`/cards/transactions/all?${params}`);
+  return { transactions: data.transactions || [], total: data.total || 0 };
+}
+
+export interface CardTransaction {
+  id: string;
+  card_order_id: string;
+  type: string;
+  amount: number;
+  fee: number;
+  status: string;
+  merchant_name: string | null;
+  transaction_time: string | null;
+  created_at: string;
+  card_last4: string;
+}
+
 export async function getProducts() {
   const r = await fetch(getApiBase() + '/cards/products');
   const data = await r.json();

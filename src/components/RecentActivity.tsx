@@ -1,21 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, CircleDot, ChevronRight, Repeat } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, CircleDot, ChevronRight, Repeat, ShieldCheck, ShieldOff } from 'lucide-react';
 import { CardOrder } from '@/types';
-import { getCardTransactions, getOnchainTransactions, type OnchainTransaction } from '@/lib/api';
-
-interface CardTransaction {
-  transactionId?: string;
-  type?: string;
-  amount?: number;
-  fee?: number;
-  status?: string;
-  transactionTime?: number;
-  description?: string;
-  merchantName?: string;
-  [key: string]: unknown;
-}
+import { getAllCardTransactions, getOnchainTransactions, type CardTransaction, type OnchainTransaction } from '@/lib/api';
 
 /** Unified transaction item for display */
 interface DisplayTx {
@@ -27,7 +15,7 @@ interface DisplayTx {
   symbol: string;
   isPositive: boolean;
   timestamp: number;
-  iconType: 'deposit' | 'withdraw' | 'send' | 'swap' | 'card' | 'freeze' | 'other';
+  iconType: 'deposit' | 'withdraw' | 'send' | 'swap' | 'card' | 'freeze' | 'unfreeze' | 'receive' | 'other';
   status?: string;
 }
 
@@ -38,30 +26,41 @@ interface Props {
 
 function getIcon(type: DisplayTx['iconType']) {
   switch (type) {
-    case 'deposit': return { icon: <ArrowDownLeft size={16} />, cls: 'bg-emerald-500/10 text-emerald-400' };
+    case 'deposit': case 'receive': return { icon: <ArrowDownLeft size={16} />, cls: 'bg-emerald-500/10 text-emerald-400' };
     case 'withdraw': case 'send': return { icon: <ArrowUpRight size={16} />, cls: 'bg-red-500/10 text-red-400' };
     case 'swap': return { icon: <Repeat size={16} />, cls: 'bg-purple-500/10 text-purple-400' };
     case 'card': return { icon: <CreditCard size={16} />, cls: 'bg-primary/10 text-primary' };
     case 'freeze': return { icon: <Snowflake size={16} />, cls: 'bg-blue-500/10 text-blue-400' };
+    case 'unfreeze': return { icon: <ShieldCheck size={16} />, cls: 'bg-green-500/10 text-green-400' };
     default: return { icon: <CircleDot size={16} />, cls: 'bg-zinc-500/10 text-zinc-400' };
   }
 }
 
-function classifyCardTx(type: string): DisplayTx['iconType'] {
+function classifyCardTxType(type: string): DisplayTx['iconType'] {
   const t = type.toLowerCase();
+  if (t.includes('card_create') || t.includes('create') || t.includes('open') || t === 'bindding') return 'card';
   if (t.includes('deposit') || t.includes('recharge')) return 'deposit';
   if (t.includes('withdraw') || t.includes('spend') || t.includes('purchase')) return 'withdraw';
-  if (t.includes('create') || t.includes('open')) return 'card';
-  if (t.includes('freeze')) return 'freeze';
+  if (t === 'freeze') return 'freeze';
+  if (t === 'unfreeze') return 'unfreeze';
   return 'other';
 }
 
-function classifyOnchainTx(type: string): DisplayTx['iconType'] {
+function classifyOnchainType(type: string): DisplayTx['iconType'] {
   const t = type.toLowerCase();
-  if (t.includes('send')) return 'send';
-  if (t.includes('swap')) return 'swap';
-  if (t.includes('receive') || t.includes('deposit')) return 'deposit';
+  if (t === 'receive') return 'receive';
+  if (t === 'swap') return 'swap';
   return 'send';
+}
+
+function labelForCardTx(tx: CardTransaction): string {
+  const t = (tx.type || '').toLowerCase();
+  if (t.includes('card_create') || t === 'bindding') return 'Card Ordered';
+  if (t === 'freeze') return 'Card Frozen';
+  if (t === 'unfreeze') return 'Card Unfrozen';
+  if (t.includes('deposit')) return 'Deposit';
+  if (t.includes('withdraw')) return 'Withdrawal';
+  return tx.merchant_name || tx.type || 'Transaction';
 }
 
 function formatRelativeTime(ts: number): string {
@@ -92,73 +91,66 @@ export function RecentActivity({ cards, onViewAll }: Props) {
     try {
       const all: DisplayTx[] = [];
 
-      // Fetch card transactions
-      const cardTxPromises = cards.map(async (card) => {
-        try {
-          const txs = await getCardTransactions(card.id);
-          if (Array.isArray(txs)) {
-            return txs.map((tx: CardTransaction) => ({
-              id: tx.transactionId || `card-${card.id}-${tx.transactionTime}`,
-              source: 'card' as const,
-              label: tx.merchantName || tx.description || tx.type || 'Card Transaction',
-              sublabel: `•••• ${card.last4 || '????'}`,
-              amount: Math.abs(tx.amount || 0),
-              symbol: 'USD',
-              isPositive: (tx.amount || 0) > 0,
-              timestamp: tx.transactionTime || 0,
-              iconType: classifyCardTx(tx.type || ''),
-              status: tx.status,
-            }));
-          }
-          return [];
-        } catch {
-          return [];
-        }
-      });
-
-      // Fetch onchain transactions
-      const onchainPromise = getOnchainTransactions(10, { sync: true }).then(txs =>
-        txs.map((rawTx: OnchainTransaction) => {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const tx = rawTx as any;
-          // Flexible field access — API may use different casing/naming
-          const type = tx.type || tx.transaction_type || 'send';
-          const token = tx.token || tx.currency || tx.symbol || '';
-          const to = tx.to || tx.to_address || tx.destination || '';
-          const network = tx.network || '';
-          const amount = tx.amount ?? 0;
-          const createdAt = tx.created_at || tx.createdAt || tx.timestamp || '';
-          const ts = createdAt ? new Date(createdAt as string).getTime() : 0;
-
-          const typeStr = String(type).toLowerCase();
-          const label = typeStr === 'send'
-            ? `Sent ${token}`
-            : typeStr === 'swap'
-              ? `Swap ${token}`
-              : `${type} ${token}`;
-
+      // Fetch ALL card transactions in one fast DB call
+      const cardTxPromise = getAllCardTransactions({ limit: 20 }).then(({ transactions: txs }) =>
+        txs.map((tx) => {
+          const iconType = classifyCardTxType(tx.type);
+          const isPositive = iconType === 'deposit' || iconType === 'card';
+          const ts = tx.transaction_time
+            ? new Date(tx.transaction_time).getTime()
+            : new Date(tx.created_at).getTime();
           return {
-            id: tx.id || String(Math.random()),
-            source: 'onchain' as const,
-            label: label.trim() || 'Transaction',
-            sublabel: to ? `→ ${shortenAddress(String(to))}` : network || undefined,
-            amount: typeof amount === 'number' ? amount : parseFloat(String(amount)) || 0,
-            symbol: String(token) || '',
-            isPositive: typeStr !== 'send',
-            timestamp: isNaN(ts) ? 0 : ts,
-            iconType: classifyOnchainTx(typeStr),
-            status: tx.status || '',
+            id: tx.id,
+            source: 'card' as const,
+            label: labelForCardTx(tx),
+            sublabel: `•••• ${tx.card_last4}`,
+            amount: Math.abs(tx.amount || 0),
+            symbol: 'USD',
+            isPositive,
+            timestamp: ts,
+            iconType,
+            status: tx.status,
           };
         })
       ).catch(() => [] as DisplayTx[]);
 
-      const [cardResults, onchainTxs] = await Promise.all([
-        Promise.all(cardTxPromises),
-        onchainPromise,
-      ]);
+      // Fetch onchain transactions
+      const onchainPromise = getOnchainTransactions(10, { sync: false }).then(txs =>
+        txs.map((rawTx: OnchainTransaction) => {
+          const tx = rawTx as unknown as Record<string, unknown>;
+          const type = String(tx.type || 'send').toLowerCase();
+          const token = String(tx.token || tx.token_symbol || tx.currency || tx.symbol || '');
+          const to = String(tx.to || tx.to_address || tx.destination || '');
+          const from = String(tx.from || tx.from_address || '');
+          const amount = typeof tx.amount === 'number' ? tx.amount : parseFloat(String(tx.amount)) || 0;
+          const createdAt = String(tx.created_at || tx.createdAt || tx.timestamp || '');
+          const ts = createdAt ? new Date(createdAt).getTime() : 0;
+          const iconType = classifyOnchainType(type);
 
-      cardResults.forEach(txs => all.push(...txs));
-      all.push(...onchainTxs);
+          const label = type === 'send' ? `Sent ${token}`
+            : type === 'swap' ? `Swap ${token}`
+            : type === 'receive' ? `Received ${token}`
+            : `${type} ${token}`;
+
+          return {
+            id: String(tx.id || Math.random()),
+            source: 'onchain' as const,
+            label: label.trim() || 'Transaction',
+            sublabel: type === 'receive'
+              ? `← ${shortenAddress(from)}`
+              : to ? `→ ${shortenAddress(to)}` : String(tx.network || ''),
+            amount,
+            symbol: token,
+            isPositive: type === 'receive',
+            timestamp: isNaN(ts) ? 0 : ts,
+            iconType,
+            status: String(tx.status || ''),
+          };
+        })
+      ).catch(() => [] as DisplayTx[]);
+
+      const [cardTxs, onchainTxs] = await Promise.all([cardTxPromise, onchainPromise]);
+      all.push(...cardTxs, ...onchainTxs);
 
       // Sort by timestamp descending, take top 5
       all.sort((a, b) => b.timestamp - a.timestamp);
@@ -168,11 +160,16 @@ export function RecentActivity({ cards, onViewAll }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [cards]);
+  }, []);
 
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
+
+  // Re-fetch when cards change (triggered by realtime)
+  useEffect(() => {
+    if (cards.length > 0) loadTransactions();
+  }, [cards.length, loadTransactions]);
 
   if (loading) {
     return (
@@ -199,7 +196,7 @@ export function RecentActivity({ cards, onViewAll }: Props) {
       <div className="absolute top-4 right-4 h-10 w-10 rounded-full bg-primary/[0.04] blur-xl" />
       {transactions.map((tx, i) => {
         const { icon, cls } = getIcon(tx.iconType);
-        const isPending = tx.status === 'pending_approval' || tx.status === 'pending';
+        const isPending = tx.status === 'pending_approval' || tx.status === 'pending' || tx.status === 'processing';
         return (
           <div
             key={tx.id}
@@ -217,12 +214,14 @@ export function RecentActivity({ cards, onViewAll }: Props) {
               )}
             </div>
             <div className="ml-3 text-right">
-              <p className={`font-mono text-sm font-bold ${
-                isPending ? 'text-amber-400' :
-                tx.isPositive ? 'text-emerald-400' : 'text-red-400'
-              }`}>
-                {tx.isPositive ? '+' : '-'}{tx.amount.toFixed(2)} {tx.symbol !== 'USD' ? tx.symbol : ''}
-              </p>
+              {tx.amount > 0 && (
+                <p className={`font-mono text-sm font-bold ${
+                  isPending ? 'text-amber-400' :
+                  tx.isPositive ? 'text-emerald-400' : 'text-red-400'
+                }`}>
+                  {tx.isPositive ? '+' : '-'}{tx.amount.toFixed(2)} {tx.symbol !== 'USD' ? tx.symbol : ''}
+                </p>
+              )}
               <p className="text-[11px] text-zinc-600">
                 {isPending ? 'pending' : formatRelativeTime(tx.timestamp)}
               </p>

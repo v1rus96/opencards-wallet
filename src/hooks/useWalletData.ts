@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { CardOrder, ChainBalance, SpendingConfig } from '@/types';
 import * as api from '@/lib/api';
+import { initRealtime } from '@/lib/realtime';
 
 const DEFAULT_SPENDING: SpendingConfig = {
   autoApproveBelow: 10,
@@ -19,6 +20,8 @@ export function useWalletData() {
   const [totalUsd, setTotalUsd] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [realtimeEvent, setRealtimeEvent] = useState(0); // bump to trigger refresh
+  const cleanupRef = useRef<(() => void) | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -71,12 +74,44 @@ export function useWalletData() {
 
   const updateSpending = useCallback((config: Partial<SpendingConfig>) => {
     setSpending(prev => ({ ...prev, ...config }));
-    // Persist to localStorage
     if (typeof window !== 'undefined') {
       const updated = { ...spending, ...config };
       localStorage.setItem('spending_config', JSON.stringify(updated));
     }
   }, [spending]);
+
+  // Initialize realtime subscriptions
+  useEffect(() => {
+    let mounted = true;
+
+    initRealtime((payload) => {
+      if (!mounted) return;
+      console.log('[Realtime]', payload.table, payload.eventType, payload.new);
+
+      // Debounced refresh on any change
+      setRealtimeEvent(prev => prev + 1);
+    }).then((cleanup) => {
+      if (mounted) {
+        cleanupRef.current = cleanup;
+      } else {
+        cleanup();
+      }
+    });
+
+    return () => {
+      mounted = false;
+      cleanupRef.current?.();
+    };
+  }, []);
+
+  // Refresh when realtime event fires (debounced)
+  useEffect(() => {
+    if (realtimeEvent === 0) return;
+    const timer = setTimeout(() => {
+      loadData();
+    }, 500); // 500ms debounce
+    return () => clearTimeout(timer);
+  }, [realtimeEvent, loadData]);
 
   useEffect(() => {
     // Load spending config from localStorage
@@ -93,7 +128,7 @@ export function useWalletData() {
     const handleVisibility = () => {
       clearInterval(interval);
       if (!document.hidden) {
-        loadData(); // refresh immediately when tab becomes visible
+        loadData();
         interval = setInterval(loadData, 60000);
       }
     };

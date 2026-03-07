@@ -1,21 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, CircleDot, ClipboardList } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, CircleDot, ClipboardList, ShieldCheck } from 'lucide-react';
 import { CardOrder } from '@/types';
-import { getCardTransactions } from '@/lib/api';
-
-interface Transaction {
-  transactionId?: string;
-  type?: string;
-  amount?: number;
-  fee?: number;
-  status?: string;
-  transactionTime?: number;
-  description?: string;
-  merchantName?: string;
-  [key: string]: unknown;
-}
+import { getAllCardTransactions, type CardTransaction } from '@/lib/api';
 
 interface Props {
   cards: (CardOrder & { liveBalance: number })[];
@@ -23,61 +11,62 @@ interface Props {
 }
 
 export function TransactionHistory({ cards, hideFilter = false }: Props) {
-  const [transactions, setTransactions] = useState<(Transaction & { cardLast4: string })[]>([]);
+  const [transactions, setTransactions] = useState<CardTransaction[]>([]);
   const [selectedCard, setSelectedCard] = useState<string>('all');
   const [loading, setLoading] = useState(true);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
     try {
-      const allTxs: (Transaction & { cardLast4: string })[] = [];
-      for (const card of cards) {
-        try {
-          const txs = await getCardTransactions(card.id);
-          if (Array.isArray(txs)) {
-            txs.forEach((tx: Transaction) => {
-              allTxs.push({ ...tx, cardLast4: card.last4 || '????' });
-            });
-          }
-        } catch {
-          // skip
-        }
-      }
-      allTxs.sort((a, b) => (b.transactionTime || 0) - (a.transactionTime || 0));
-      setTransactions(allTxs);
+      const cardId = selectedCard !== 'all'
+        ? cards.find(c => c.last4 === selectedCard)?.id
+        : undefined;
+      const { transactions: txs } = await getAllCardTransactions({
+        cardId,
+        limit: 100,
+      });
+      setTransactions(txs);
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [cards]);
+  }, [cards, selectedCard]);
 
   useEffect(() => {
     if (cards.length > 0) loadTransactions();
   }, [cards, loadTransactions]);
 
-  const filtered = selectedCard === 'all'
-    ? transactions
-    : transactions.filter(tx => tx.cardLast4 === selectedCard);
-
   const uniqueCards = [...new Set(cards.map(c => c.last4).filter(Boolean))];
 
-  const getTxIcon = (tx: Transaction) => {
-    const type = (tx.type || '').toLowerCase();
-    if (type.includes('deposit') || type.includes('recharge'))
+  const getTxIcon = (type: string) => {
+    const t = type.toLowerCase();
+    if (t.includes('deposit') || t.includes('recharge'))
       return { icon: <ArrowDownLeft size={16} />, cls: 'bg-emerald-500/10 text-emerald-400' };
-    if (type.includes('withdraw') || type.includes('spend') || type.includes('purchase'))
+    if (t.includes('withdraw') || t.includes('spend') || t.includes('purchase'))
       return { icon: <ArrowUpRight size={16} />, cls: 'bg-red-500/10 text-red-400' };
-    if (type.includes('create') || type.includes('open'))
+    if (t.includes('card_create') || t.includes('create') || t.includes('open') || t === 'bindding')
       return { icon: <CreditCard size={16} />, cls: 'bg-primary/10 text-primary' };
-    if (type.includes('freeze'))
+    if (t.includes('freeze'))
       return { icon: <Snowflake size={16} />, cls: 'bg-blue-500/10 text-blue-400' };
+    if (t.includes('unfreeze'))
+      return { icon: <ShieldCheck size={16} />, cls: 'bg-green-500/10 text-green-400' };
     return { icon: <CircleDot size={16} />, cls: 'bg-zinc-500/10 text-zinc-400' };
   };
 
-  const formatTime = (ts: number) => {
+  const labelForType = (tx: CardTransaction): string => {
+    const t = (tx.type || '').toLowerCase();
+    if (t.includes('card_create') || t === 'bindding') return 'Card Ordered';
+    if (t === 'freeze') return 'Card Frozen';
+    if (t === 'unfreeze') return 'Card Unfrozen';
+    if (t.includes('deposit')) return 'Deposit';
+    if (t.includes('withdraw')) return 'Withdrawal';
+    return tx.merchant_name || tx.type || 'Transaction';
+  };
+
+  const formatTime = (ts: string | null) => {
     if (!ts) return '';
-    const d = new Date(ts > 1e12 ? ts : ts * 1000);
+    const d = new Date(ts);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
@@ -116,18 +105,20 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
             <div key={i} className="h-16 animate-pulse rounded-xl bg-zinc-800/60" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : transactions.length === 0 ? (
         <div className="py-12 text-center">
           <ClipboardList size={32} className="mx-auto text-zinc-600" />
           <p className="mt-2 text-sm text-zinc-500">No transactions yet</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((tx, i) => {
-            const { icon, cls } = getTxIcon(tx);
+          {transactions.map((tx) => {
+            const { icon, cls } = getTxIcon(tx.type);
+            const isPending = tx.status === 'pending' || tx.status === 'processing';
+            const isPositive = tx.type.toLowerCase().includes('deposit') || tx.type.toLowerCase().includes('card_create');
             return (
               <div
-                key={tx.transactionId || i}
+                key={tx.id}
                 className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 p-3.5"
               >
                 <div className={`mr-3 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] ${cls}`}>
@@ -135,18 +126,24 @@ export function TransactionHistory({ cards, hideFilter = false }: Props) {
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-white">
-                    {tx.merchantName || tx.description || tx.type || 'Transaction'}
+                    {labelForType(tx)}
                   </p>
                   <p className="text-xs text-zinc-500">
-                    •{tx.cardLast4} · {formatTime(tx.transactionTime || 0)}
+                    •{tx.card_last4} · {formatTime(tx.transaction_time || tx.created_at)}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className={`font-mono text-sm font-bold ${(tx.amount || 0) > 0 ? 'text-emerald-400' : 'text-red-400'
+                  {tx.amount > 0 && (
+                    <p className={`font-mono text-sm font-bold ${
+                      isPending ? 'text-amber-400' :
+                      isPositive ? 'text-emerald-400' : 'text-red-400'
                     }`}>
-                    {(tx.amount || 0) > 0 ? '+' : '-'}${Math.abs(tx.amount || 0).toFixed(2)}
+                      {isPositive ? '+' : '-'}${Math.abs(tx.amount).toFixed(2)}
+                    </p>
+                  )}
+                  <p className="text-[11px] text-zinc-500">
+                    {isPending ? 'processing' : tx.status || 'completed'}
                   </p>
-                  <p className="text-[11px] text-zinc-500">{tx.status || 'completed'}</p>
                 </div>
               </div>
             );
