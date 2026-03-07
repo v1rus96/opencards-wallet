@@ -25,12 +25,13 @@ export function useWalletData() {
       setError(null);
 
       // Parallel fetch
-      const [orders, solBal, solUsdc, baseEth, baseUsdc] = await Promise.all([
+      const [orders, solBal, solUsdc, baseEth, baseUsdc, prices] = await Promise.all([
         api.getOrders(),
         api.getSolBalance(),
         api.getSolUsdcBalance(),
         api.getBaseEthBalance(),
         api.getBaseUsdcBalance(),
+        api.getCryptoPrices(),
       ]);
 
       // Get live balances for each card
@@ -49,15 +50,17 @@ export function useWalletData() {
       const totalCards = cardsWithBalance.reduce((s, c) => s + c.liveBalance, 0);
 
       const chainBalances: ChainBalance[] = [
-        { chain: 'Base (Sepolia)', icon: '🔵', symbol: 'ETH', balance: baseEth },
-        { chain: 'Solana (Devnet)', icon: '💎', symbol: 'SOL', balance: solBal },
-        { chain: 'USDC (Base)', icon: '💵', symbol: 'USDC', balance: baseUsdc },
-        { chain: 'USDC (Solana)', icon: '💵', symbol: 'USDC', balance: solUsdc },
+        { chain: 'Base (Sepolia)', icon: '🔵', symbol: 'ETH', balance: baseEth, usdValue: baseEth * (prices.ETH || 0) },
+        { chain: 'Solana (Devnet)', icon: '💎', symbol: 'SOL', balance: solBal, usdValue: solBal * (prices.SOL || 0) },
+        { chain: 'USDC (Base)', icon: '💵', symbol: 'USDC', balance: baseUsdc, usdValue: baseUsdc * (prices.USDC || 1) },
+        { chain: 'USDC (Solana)', icon: '💵', symbol: 'USDC', balance: solUsdc, usdValue: solUsdc * (prices.USDC || 1) },
       ];
+
+      const totalChainUsd = chainBalances.reduce((s, c) => s + (c.usdValue || 0), 0);
 
       setCards(cardsWithBalance);
       setChains(chainBalances);
-      setTotalUsd(totalCards + baseUsdc + solUsdc);
+      setTotalUsd(totalCards + totalChainUsd);
       setLoading(false);
     } catch (err) {
       setError('Failed to load wallet data');

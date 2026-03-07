@@ -50,6 +50,11 @@ export function ChainGrid({ chains, loading, horizontal = false, onChainSelect }
               {c.balance.toLocaleString('en-US', { maximumFractionDigits: 4 })}{' '}
               <span className="font-sans text-[10px] font-medium text-zinc-500">{c.symbol}</span>
             </p>
+            {c.usdValue != null && c.usdValue > 0 && (
+              <p className="relative z-10 mt-0.5 font-mono text-[11px] text-zinc-500">
+                ${c.usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            )}
           </button>
         ))}
       </div>
@@ -72,6 +77,11 @@ export function ChainGrid({ chains, loading, horizontal = false, onChainSelect }
             {c.balance.toLocaleString('en-US', { maximumFractionDigits: 4 })}{' '}
             <span className="font-sans text-xs font-medium text-zinc-500">{c.symbol}</span>
           </p>
+          {c.usdValue != null && c.usdValue > 0 && (
+            <p className="mt-0.5 font-mono text-xs text-zinc-500">
+              ${c.usdValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </p>
+          )}
         </button>
       ))}
     </div>

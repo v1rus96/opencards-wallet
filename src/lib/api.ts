@@ -25,8 +25,12 @@ async function apiGet(path: string) {
   return r.json();
 }
 
-async function apiPost(path: string) {
-  const r = await fetch(getApiBase() + path, { method: 'POST', headers: getApiHeaders() });
+async function apiPost(path: string, body?: unknown) {
+  const r = await fetch(getApiBase() + path, {
+    method: 'POST',
+    headers: getApiHeaders(),
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
   return r.json();
 }
 
@@ -155,6 +159,92 @@ export async function getBaseEthBalance(): Promise<number> {
     return parseInt(d.result || '0', 16) / 1e18;
   } catch {
     return 0;
+  }
+}
+
+// ── Onchain Send & Transactions ──────────────────────────────────
+
+export interface SendTokensParams {
+  to: string;
+  amount: number;
+  token: string;
+  network: string;
+  memo?: string;
+}
+
+export interface SendTokensResult {
+  success: boolean;
+  tx_hash?: string;
+  tx_id?: string;
+  message?: string;
+  status?: string;
+  approval_id?: string;
+  reason?: string;
+  error?: string;
+}
+
+export async function sendTokens(params: SendTokensParams): Promise<SendTokensResult> {
+  return apiPost('/onchain/send', params);
+}
+
+export interface OnchainTransaction {
+  id: string;
+  type: string;
+  token: string;
+  amount: number;
+  network: string;
+  to?: string;
+  from?: string;
+  tx_hash?: string;
+  status: string;
+  memo?: string;
+  created_at: string;
+}
+
+export async function getOnchainTransactions(limit = 10, opts?: { sync?: boolean; network?: string }): Promise<OnchainTransaction[]> {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (opts?.sync) params.set('sync', 'true');
+  if (opts?.network) params.set('network', opts.network);
+  const data = await apiGet(`/onchain/transactions?${params}`);
+  return data.transactions || [];
+}
+
+export async function syncOnchain(network?: string): Promise<{ success: boolean }> {
+  return apiPost('/onchain/sync', network ? { network } : undefined);
+}
+
+// ── CoinGecko Prices ─────────────────────────────────────────────
+
+const COINGECKO_IDS: Record<string, string> = {
+  ETH: 'ethereum',
+  SOL: 'solana',
+  USDC: 'usd-coin',
+};
+
+let priceCache: { prices: Record<string, number>; ts: number } | null = null;
+const PRICE_TTL = 60_000; // 1 minute
+
+export async function getCryptoPrices(): Promise<Record<string, number>> {
+  if (priceCache && Date.now() - priceCache.ts < PRICE_TTL) return priceCache.prices;
+
+  try {
+    const ids = Object.values(COINGECKO_IDS).join(',');
+    const r = await fetch(
+      `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`,
+      { headers: { accept: 'application/json' } }
+    );
+    const data = await r.json();
+
+    const prices: Record<string, number> = {};
+    for (const [symbol, cgId] of Object.entries(COINGECKO_IDS)) {
+      prices[symbol] = data[cgId]?.usd ?? (symbol === 'USDC' ? 1 : 0);
+    }
+
+    priceCache = { prices, ts: Date.now() };
+    return prices;
+  } catch {
+    // Fallback: USDC = $1, others unknown
+    return { ETH: 0, SOL: 0, USDC: 1 };
   }
 }
 

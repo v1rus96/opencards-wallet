@@ -2,14 +2,13 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback } from 'react';
-import { Home as HomeIcon, CreditCard, ClipboardList, Settings, Plus, KeyRound, ChevronRight, Wallet } from 'lucide-react';
+import { Home as HomeIcon, CreditCard, Settings, Plus, KeyRound, ChevronRight, Wallet } from 'lucide-react';
 import { NetworkSolana, NetworkEthereum } from '@web3icons/react';
 import { useSafeArea, useTelegram } from '@/hooks/useTelegram';
 import { useWalletData } from '@/hooks/useWalletData';
 import { getConfig, clearConfig } from '@/lib/store';
 import { clearAddressCache, freezeCard, unfreezeCard, getAddresses } from '@/lib/api';
 import { ChainGrid } from '@/components/ChainGrid';
-const CoinCarousel = dynamic(() => import('@/components/CoinCarousel').then(m => m.CoinCarousel), { ssr: false });
 const CardList = dynamic(() => import('@/components/CardList').then(m => m.CardList), { ssr: false });
 import { SpendingBudget } from '@/components/SpendingBudget';
 import { CoinDrawer } from '@/components/CoinDrawer';
@@ -26,8 +25,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
-const TransactionHistory = dynamic(() => import('@/components/TransactionHistory').then(m => m.TransactionHistory), { ssr: false });
-
 type View = 'main' | 'setup';
 
 export default function Home() {
@@ -39,9 +36,8 @@ export default function Home() {
   const [depositCard, setDepositCard] = useState<(CardOrder & { liveBalance: number }) | null>(null);
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [selectedChain, setSelectedChain] = useState<import('@/types').ChainBalance | null>(null);
-  const [isCoinDrawerOpen, setIsCoinDrawerOpen] = useState(false);
   const [addresses, setAddresses] = useState({ sol: '', evm: '' });
-  const [drawerMode, setDrawerMode] = useState<'none' | 'order' | 'deposit'>('none');
+  const [drawerMode, setDrawerMode] = useState<'none' | 'order' | 'deposit' | 'coin'>('none');
   const [drawerCTA, setDrawerCTA] = useState<DrawerAction | null>(null);
 
   useEffect(() => {
@@ -70,7 +66,7 @@ export default function Home() {
   const handleDrawerClose = useCallback(() => {
     setDrawerMode('none');
     setDrawerCTA(null);
-    setTimeout(() => setDepositCard(null), 400);
+    setTimeout(() => { setDepositCard(null); setSelectedChain(null); }, 400);
   }, []);
 
   const handleFreeze = async (card: CardOrder & { liveBalance: number }, freeze: boolean) => {
@@ -182,23 +178,13 @@ export default function Home() {
                       horizontal
                       onChainSelect={(chain) => {
                         setSelectedChain(chain);
-                        setIsCoinDrawerOpen(true);
-                        haptic('medium');
-                      }}
-                    />
-
-                    <CoinCarousel
-                      chains={chains}
-                      loading={loading}
-                      onChainSelect={(chain) => {
-                        setSelectedChain(chain);
-                        setIsCoinDrawerOpen(true);
+                        setDrawerMode('coin');
                         haptic('medium');
                       }}
                     />
 
                     <p className="section-title">Recent Activity</p>
-                    <RecentActivity cards={cards} onViewAll={() => handleTab('Activity')} />
+                    <RecentActivity cards={cards} />
                   </div>
                 )}
 
@@ -215,13 +201,6 @@ export default function Home() {
                       </Button>
                     </div>
                     <CardList cards={cards} loading={loading} onDeposit={handleDeposit} onFreeze={handleFreeze} />
-                  </div>
-                )}
-
-                {activeTab === 'Activity' && (
-                  <div className="animate-fadeIn">
-                    <p className="section-title !mt-0">Transaction History</p>
-                    <TransactionHistory cards={cards} />
                   </div>
                 )}
 
@@ -304,7 +283,6 @@ export default function Home() {
           navItems={[
             { icon: HomeIcon, label: 'Overview' },
             { icon: CreditCard, label: 'Cards' },
-            { icon: ClipboardList, label: 'Activity' },
             { icon: Settings, label: 'Settings' },
           ]}
           activeTab={activeTab}
@@ -334,6 +312,21 @@ export default function Home() {
                   onActionButton={setDrawerCTA}
                 />
               ),
+            }] : drawerMode === 'coin' && selectedChain ? [{
+              title: '',
+              content: (
+                <CoinDrawer
+                  chain={selectedChain}
+                  address={
+                    selectedChain.chain.includes('Solana') || selectedChain.chain.includes('SOL')
+                      ? addresses.sol
+                      : addresses.evm
+                  }
+                  onBack={handleDrawerClose}
+                  onSuccess={refresh}
+                  onActionButton={setDrawerCTA}
+                />
+              ),
             }] : [],
             ctaButtons: drawerCTA ? [
               ...(drawerCTA.onBack ? [{
@@ -355,17 +348,6 @@ export default function Home() {
         />
       )}
 
-      {/* Coin Drawer (Send/Receive) */}
-      <CoinDrawer
-        open={isCoinDrawerOpen}
-        chain={selectedChain}
-        address={
-          selectedChain?.chain.includes('Solana') || selectedChain?.chain.includes('SOL')
-            ? addresses.sol
-            : addresses.evm
-        }
-        onClose={() => { setIsCoinDrawerOpen(false); setTimeout(() => setSelectedChain(null), 300); }}
-      />
     </div>
   );
 }
