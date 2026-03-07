@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useState, useEffect, useCallback } from 'react';
-import { Home as HomeIcon, CreditCard, Settings, Plus, KeyRound, ChevronRight, Wallet } from 'lucide-react';
+import { Home as HomeIcon, CreditCard, ClipboardList, Settings, Plus, KeyRound, ChevronRight, Wallet } from 'lucide-react';
 import { NetworkSolana, NetworkEthereum } from '@web3icons/react';
 import { useSafeArea, useTelegram } from '@/hooks/useTelegram';
 import { useWalletData } from '@/hooks/useWalletData';
@@ -16,6 +16,7 @@ import { BottomNavbar, type CTAButton, type DrawerStep } from '@/components/bott
 import { SafeAreaFade } from '@/components/SafeAreaFade';
 import { OrderCard } from '@/components/OrderCard';
 import { DepositCard, type DrawerAction } from '@/components/DepositCard';
+import { TransactionDetailContent, type TxDetailData } from '@/components/TransactionDetail';
 import { Setup } from '@/components/Setup';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { RecentActivity } from '@/components/RecentActivity';
@@ -25,20 +26,23 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
+const TransactionHistory = dynamic(() => import('@/components/TransactionHistory').then(m => m.TransactionHistory), { ssr: false });
+
 type View = 'main' | 'setup';
 
 export default function Home() {
   const safeArea = useSafeArea();
   const { haptic } = useTelegram();
-  const { cards, chains, spending, totalUsd, loading, error, refresh, updateSpending, realtimeEvent } = useWalletData();
+  const { cards, chains, spending, totalUsd, totalCrypto, totalCash, loading, error, refresh, updateSpending, realtimeEvent } = useWalletData();
   const [activeTab, setActiveTab] = useState('Overview');
   const [view, setView] = useState<View>('main');
   const [depositCard, setDepositCard] = useState<(CardOrder & { liveBalance: number }) | null>(null);
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [selectedChain, setSelectedChain] = useState<import('@/types').ChainBalance | null>(null);
   const [addresses, setAddresses] = useState({ sol: '', evm: '' });
-  const [drawerMode, setDrawerMode] = useState<'none' | 'order' | 'deposit' | 'coin'>('none');
+  const [drawerMode, setDrawerMode] = useState<'none' | 'order' | 'deposit' | 'coin' | 'txDetail'>('none');
   const [drawerCTA, setDrawerCTA] = useState<DrawerAction | null>(null);
+  const [selectedTx, setSelectedTx] = useState<TxDetailData | null>(null);
 
   useEffect(() => {
     const config = getConfig();
@@ -66,8 +70,14 @@ export default function Home() {
   const handleDrawerClose = useCallback(() => {
     setDrawerMode('none');
     setDrawerCTA(null);
-    setTimeout(() => { setDepositCard(null); setSelectedChain(null); }, 400);
+    setTimeout(() => { setDepositCard(null); setSelectedChain(null); setSelectedTx(null); }, 400);
   }, []);
+
+  const handleTxSelect = useCallback((tx: TxDetailData) => {
+    setSelectedTx(tx);
+    setDrawerMode('txDetail');
+    haptic('light');
+  }, [haptic]);
 
   const handleFreeze = async (card: CardOrder & { liveBalance: number }, freeze: boolean) => {
     if (freeze) {
@@ -169,6 +179,24 @@ export default function Home() {
                           );
                         })()}
                       </div>
+
+                      {/* Crypto / Cash split */}
+                      {!loading && (
+                        <div className="relative z-10 mt-5 grid grid-cols-2 gap-3">
+                          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-center">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Crypto</p>
+                            <p className="mt-1 font-mono text-lg font-bold text-white">
+                              ${totalCrypto.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-center">
+                            <p className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Cash</p>
+                            <p className="mt-1 font-mono text-lg font-bold text-white">
+                              ${totalCash.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <p className="section-title">Wallets</p>
@@ -184,7 +212,7 @@ export default function Home() {
                     />
 
                     <p className="section-title">Recent Activity</p>
-                    <RecentActivity cards={cards} refreshKey={realtimeEvent} />
+                    <RecentActivity cards={cards} refreshKey={realtimeEvent} onViewAll={() => handleTab('Activity')} onTxSelect={handleTxSelect} />
                   </div>
                 )}
 
@@ -200,7 +228,14 @@ export default function Home() {
                         <Plus size={14} /> New Card
                       </Button>
                     </div>
-                    <CardList cards={cards} loading={loading} onDeposit={handleDeposit} onFreeze={handleFreeze} />
+                    <CardList cards={cards} loading={loading} onDeposit={handleDeposit} onFreeze={handleFreeze} onTxSelect={handleTxSelect} />
+                  </div>
+                )}
+
+                {activeTab === 'Activity' && (
+                  <div className="animate-fadeIn">
+                    <p className="section-title !mt-0">Transaction History</p>
+                    <TransactionHistory cards={cards} onTxSelect={handleTxSelect} />
                   </div>
                 )}
 
@@ -283,6 +318,7 @@ export default function Home() {
           navItems={[
             { icon: HomeIcon, label: 'Overview' },
             { icon: CreditCard, label: 'Cards' },
+            { icon: ClipboardList, label: 'Activity' },
             { icon: Settings, label: 'Settings' },
           ]}
           activeTab={activeTab}
@@ -324,6 +360,15 @@ export default function Home() {
                   }
                   onBack={handleDrawerClose}
                   onSuccess={refresh}
+                  onActionButton={setDrawerCTA}
+                />
+              ),
+            }] : drawerMode === 'txDetail' && selectedTx ? [{
+              title: '',
+              content: (
+                <TransactionDetailContent
+                  tx={selectedTx}
+                  onBack={handleDrawerClose}
                   onActionButton={setDrawerCTA}
                 />
               ),

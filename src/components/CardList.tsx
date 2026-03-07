@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Loader2, CreditCard, Snowflake } from 'lucide-react';
 import { CardOrder, CardSensitive } from '@/types';
 import { getCardSensitive } from '@/lib/api';
+import type { TxDetailData } from './TransactionDetail';
 
 const TransactionHistory = dynamic(() => import('@/components/TransactionHistory').then(m => m.TransactionHistory), { ssr: false });
 
@@ -504,13 +505,14 @@ interface Props {
   loading: boolean;
   onDeposit?: (card: CardOrder & { liveBalance: number }) => void;
   onFreeze?: (card: CardOrder & { liveBalance: number }, freeze: boolean) => Promise<void>;
+  onTxSelect?: (tx: TxDetailData) => void;
 }
 
 /* ── Card peek height (visible portion when stacked) ─────────────── */
 const PEEK = 52;
 
 /* ── CardList export — Apple Wallet stack ─────────────────────────── */
-export function CardList({ cards, loading, onDeposit, onFreeze }: Props) {
+export function CardList({ cards, loading, onDeposit, onFreeze, onTxSelect }: Props) {
   const [selected, setSelected] = useState<number | null>(null);
   /* Deferred flag — mounts TransactionHistory AFTER the card animation
      has had at least two frames to paint, so the heavy DOM work from
@@ -722,7 +724,7 @@ export function CardList({ cards, loading, onDeposit, onFreeze }: Props) {
             willChange: "opacity, transform"
           }}>
             {selected !== null && txReady && (
-              <TransactionHistory cards={selectedCardsArr} hideFilter />
+              <TransactionHistory cards={selectedCardsArr} hideFilter onTxSelect={onTxSelect} />
             )}
           </div>
         </div>

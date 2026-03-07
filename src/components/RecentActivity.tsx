@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, CircleDot, ChevronRight, Repeat, ShieldCheck } from 'lucide-react';
 import { CardOrder } from '@/types';
 import { getAllCardTransactions, getOnchainTransactions, type CardTransaction, type OnchainTransaction } from '@/lib/api';
-import { TransactionDetail, type TxDetailData } from './TransactionDetail';
+import type { TxDetailData } from './TransactionDetail';
 
 /** Unified transaction item for display */
 interface DisplayTx {
@@ -32,6 +32,7 @@ interface DisplayTx {
 interface Props {
   cards: (CardOrder & { liveBalance: number })[];
   onViewAll?: () => void;
+  onTxSelect?: (tx: TxDetailData) => void;
   refreshKey?: number; // bump to force re-fetch (e.g. from realtime events)
 }
 
@@ -93,10 +94,9 @@ function shortenAddress(addr: string): string {
   return addr.slice(0, 6) + '...' + addr.slice(-4);
 }
 
-export function RecentActivity({ cards, onViewAll, refreshKey }: Props) {
+export function RecentActivity({ cards, onViewAll, onTxSelect, refreshKey }: Props) {
   const [transactions, setTransactions] = useState<DisplayTx[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTx, setSelectedTx] = useState<DisplayTx | null>(null);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
@@ -219,7 +219,7 @@ export function RecentActivity({ cards, onViewAll, refreshKey }: Props) {
         return (
           <div
             key={tx.id}
-            onClick={() => setSelectedTx(tx)}
+            onClick={() => onTxSelect?.(tx as TxDetailData)}
             className={`relative z-10 flex items-center px-4 py-3 cursor-pointer transition-colors active:bg-white/[0.03] ${i > 0 ? 'border-t border-white/[0.04]' : ''}`}
           >
             <div className={`mr-3 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${cls}`}>
@@ -259,13 +259,6 @@ export function RecentActivity({ cards, onViewAll, refreshKey }: Props) {
         </button>
       )}
 
-      {/* Transaction detail sheet */}
-      {selectedTx && (
-        <TransactionDetail
-          tx={selectedTx as TxDetailData}
-          onClose={() => setSelectedTx(null)}
-        />
-      )}
     </div>
   );
 }

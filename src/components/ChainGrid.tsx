@@ -10,7 +10,9 @@ const CHAIN_ICONS: Record<string, React.ReactNode> = {
   'USDC (Solana)': <TokenUSDC size={28} variant="mono" />,
 };
 
-export function ChainGrid({ chains, loading, horizontal = false, onChainSelect }: { chains: ChainBalance[]; loading: boolean; horizontal?: boolean; onChainSelect?: (chain: ChainBalance) => void }) {
+export function ChainGrid({ chains: rawChains, loading, horizontal = false, onChainSelect }: { chains: ChainBalance[]; loading: boolean; horizontal?: boolean; onChainSelect?: (chain: ChainBalance) => void }) {
+  // Sort by USD value descending (highest balance first, zero-balance last)
+  const chains = [...rawChains].sort((a, b) => (b.usdValue || 0) - (a.usdValue || 0));
   if (loading) {
     if (horizontal) {
       return (

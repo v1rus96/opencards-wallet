@@ -1,7 +1,7 @@
 'use client';
 
-import { X, ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, Repeat, ShieldCheck, CircleDot, ExternalLink, Copy, Check } from 'lucide-react';
-import { useState, useCallback } from 'react';
+import { ArrowDownLeft, ArrowUpRight, CreditCard, Snowflake, Repeat, ShieldCheck, CircleDot, ExternalLink, Copy, Check } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
 
 export interface TxDetailData {
   id: string;
@@ -86,6 +86,97 @@ function explorerUrl(tx: TxDetailData): string | null {
   return null;
 }
 
+/**
+ * Drawer-compatible content for transaction details.
+ * Renders pure content — no backdrop or overlay.
+ */
+export function TransactionDetailContent({ tx, onActionButton, onBack }: {
+  tx: TxDetailData;
+  onActionButton?: (action: { label: string; perform: () => void; disabled: boolean; onBack?: () => void }) => void;
+  onBack?: () => void;
+}) {
+  const { icon, cls } = getIcon(tx.iconType);
+  const explorer = explorerUrl(tx);
+
+  const rows: { label: string; value: string; copyable?: boolean }[] = [];
+
+  rows.push({ label: 'Status', value: tx.status || 'unknown' });
+  rows.push({ label: 'Date', value: formatTime(tx.timestamp) });
+
+  if (tx.source === 'card') {
+    if (tx.card_last4) rows.push({ label: 'Card', value: `•••• ${tx.card_last4}` });
+    if (tx.type) rows.push({ label: 'Type', value: tx.type });
+    if (tx.fee && tx.fee > 0) rows.push({ label: 'Fee', value: `$${tx.fee.toFixed(2)}` });
+  }
+
+  if (tx.source === 'onchain') {
+    if (tx.network) rows.push({ label: 'Network', value: tx.network });
+    if (tx.from_address) rows.push({ label: 'From', value: shortenAddr(tx.from_address), copyable: true });
+    if (tx.to_address) rows.push({ label: 'To', value: shortenAddr(tx.to_address), copyable: true });
+    if (tx.tx_hash) rows.push({ label: 'Tx Hash', value: shortenAddr(tx.tx_hash), copyable: true });
+    if (tx.memo) rows.push({ label: 'Memo', value: tx.memo });
+  }
+
+  rows.push({ label: 'ID', value: tx.id.slice(0, 8) + '...', copyable: true });
+
+  // Report CTA to parent drawer
+  useEffect(() => {
+    if (!onActionButton) return;
+    onActionButton({
+      label: explorer ? 'View on Explorer' : 'Done',
+      perform: () => {
+        if (explorer) window.open(explorer, '_blank', 'noopener,noreferrer');
+        onBack?.();
+      },
+      disabled: false,
+      onBack: onBack,
+    });
+  }, [onActionButton, explorer, onBack]);
+
+  return (
+    <div>
+      {/* Icon + Amount */}
+      <div className="flex flex-col items-center mb-6">
+        <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${cls}`}>
+          {icon}
+        </div>
+        <p className="text-lg font-semibold text-white">{tx.label}</p>
+        {tx.sublabel && <p className="text-sm text-zinc-500">{tx.sublabel}</p>}
+        <p className={`mt-2 font-mono text-3xl font-bold ${tx.isPositive ? 'text-emerald-400' : tx.amount > 0 ? 'text-red-400' : 'text-zinc-400'}`}>
+          {tx.amount > 0 && (tx.isPositive ? '+' : '-')}{tx.amount > 0 ? tx.amount.toFixed(tx.symbol === 'USD' ? 2 : 6) : ''} {tx.symbol !== 'USD' ? tx.symbol : tx.amount > 0 ? '' : ''}
+          {tx.amount > 0 && tx.symbol === 'USD' && ' USD'}
+        </p>
+      </div>
+
+      {/* Detail rows */}
+      <div className="space-y-0 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+        {rows.map((row, i) => (
+          <div key={row.label} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-zinc-800' : ''}`}>
+            <span className="text-sm text-zinc-500">{row.label}</span>
+            <span className="flex items-center">
+              <span className={`text-sm font-medium ${row.label === 'Status' ? statusColor(row.value) : 'text-white'}`}>
+                {row.value}
+              </span>
+              {row.copyable && (
+                <CopyButton text={
+                  row.label === 'From' ? (tx.from_address || '') :
+                  row.label === 'To' ? (tx.to_address || '') :
+                  row.label === 'Tx Hash' ? (tx.tx_hash || '') :
+                  row.label === 'ID' ? tx.id : row.value
+                } />
+              )}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Legacy standalone sheet (self-contained with backdrop).
+ * @deprecated Use TransactionDetailContent inside the BottomNavbar drawer instead.
+ */
 interface Props {
   tx: TxDetailData;
   onClose: () => void;
@@ -118,23 +209,12 @@ export function TransactionDetail({ tx, onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center">
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-
-      {/* Sheet */}
       <div
         className="relative w-full max-w-lg rounded-t-2xl border-t border-white/[0.08] bg-zinc-950 px-5 pb-8 pt-4 animate-slideUp"
         style={{ maxHeight: '80vh', overflowY: 'auto' }}
       >
-        {/* Handle */}
         <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-zinc-700" />
-
-        {/* Close */}
-        <button onClick={onClose} className="absolute right-4 top-4 p-1 rounded-full hover:bg-white/5">
-          <X size={18} className="text-zinc-500" />
-        </button>
-
-        {/* Icon + Amount */}
         <div className="flex flex-col items-center mb-6">
           <div className={`mb-3 flex h-12 w-12 items-center justify-center rounded-2xl ${cls}`}>
             {icon}
@@ -146,8 +226,6 @@ export function TransactionDetail({ tx, onClose }: Props) {
             {tx.amount > 0 && tx.symbol === 'USD' && ' USD'}
           </p>
         </div>
-
-        {/* Detail rows */}
         <div className="space-y-0 rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
           {rows.map((row, i) => (
             <div key={row.label} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-zinc-800' : ''}`}>
@@ -168,8 +246,6 @@ export function TransactionDetail({ tx, onClose }: Props) {
             </div>
           ))}
         </div>
-
-        {/* Explorer link */}
         {explorer && (
           <a
             href={explorer}
@@ -181,7 +257,6 @@ export function TransactionDetail({ tx, onClose }: Props) {
           </a>
         )}
       </div>
-
       <style jsx>{`
         @keyframes slideUp {
           from { transform: translateY(100%); }

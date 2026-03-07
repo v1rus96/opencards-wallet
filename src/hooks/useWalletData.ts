@@ -18,6 +18,8 @@ export function useWalletData() {
   const [chains, setChains] = useState<ChainBalance[]>([]);
   const [spending, setSpending] = useState<SpendingConfig>(DEFAULT_SPENDING);
   const [totalUsd, setTotalUsd] = useState(0);
+  const [totalCrypto, setTotalCrypto] = useState(0);
+  const [totalCash, setTotalCash] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [realtimeEvent, setRealtimeEvent] = useState(0); // bump to trigger refresh
@@ -63,6 +65,8 @@ export function useWalletData() {
 
       setCards(cardsWithBalance);
       setChains(chainBalances);
+      setTotalCrypto(totalChainUsd);
+      setTotalCash(totalCards);
       setTotalUsd(totalCards + totalChainUsd);
       setLoading(false);
     } catch (err) {
@@ -123,22 +127,16 @@ export function useWalletData() {
     }
     loadData();
 
-    // Pause polling when tab is hidden to save resources
-    let interval = setInterval(loadData, 60000);
+    // Refresh when tab becomes visible again (no polling — realtime handles updates)
     const handleVisibility = () => {
-      clearInterval(interval);
-      if (!document.hidden) {
-        loadData();
-        interval = setInterval(loadData, 60000);
-      }
+      if (!document.hidden) loadData();
     };
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, [loadData]);
 
-  return { cards, chains, spending, totalUsd, loading, error, refresh: loadData, updateSpending, realtimeEvent };
+  return { cards, chains, spending, totalUsd, totalCrypto, totalCash, loading, error, refresh: loadData, updateSpending, realtimeEvent };
 }
