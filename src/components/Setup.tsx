@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Key, Shield, ChevronRight, CheckCircle2, UserPlus, Copy, Check, Wallet, AlertTriangle } from 'lucide-react';
 import { saveConfig, WalletConfig } from '@/lib/store';
+import { linkTelegramChat } from '@/lib/telegram-auth';
 
 interface SetupProps {
   onComplete: () => void;
@@ -41,6 +42,7 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
           name: data.agent.name,
         });
         saveConfig({ apiKey: key });
+        linkTelegramChat(key);
         setStep('done');
       } else {
         setError(data.error || 'Registration failed');
@@ -64,6 +66,7 @@ export function Setup({ onComplete, initialConfig }: SetupProps) {
       const data = await r.json();
       if (data.products?.length > 0) {
         saveConfig({ apiKey });
+        linkTelegramChat(apiKey);
         setStep('done');
         setTimeout(onComplete, 800);
       } else {

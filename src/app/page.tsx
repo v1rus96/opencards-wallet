@@ -6,7 +6,8 @@ import { Home as HomeIcon, CreditCard, ClipboardList, Settings, Plus, KeyRound, 
 import { NetworkSolana, NetworkEthereum } from '@web3icons/react';
 import { useSafeArea, useTelegram } from '@/hooks/useTelegram';
 import { useWalletData } from '@/hooks/useWalletData';
-import { getConfig, clearConfig } from '@/lib/store';
+import { getConfig, saveConfig, clearConfig } from '@/lib/store';
+import { handleTelegramAutoLogin } from '@/lib/telegram-auth';
 import { clearAddressCache, freezeCard, unfreezeCard, getAddresses } from '@/lib/api';
 import { ChainGrid } from '@/components/ChainGrid';
 const CardList = dynamic(() => import('@/components/CardList').then(m => m.CardList), { ssr: false });
@@ -44,14 +45,31 @@ export default function Home() {
   const [selectedTx, setSelectedTx] = useState<TxDetailData | null>(null);
 
   useEffect(() => {
-    const config = getConfig();
-    if (!config.configured || !config.apiKey) {
+    async function init() {
+      const config = getConfig();
+
+      // Already configured — go straight to main
+      if (config.configured && config.apiKey) {
+        setConfigured(true);
+        getAddresses().then(setAddresses);
+        return;
+      }
+
+      // Try Telegram auto-login via startapp parameter (oc_xxx)
+      const result = await handleTelegramAutoLogin();
+      if (result.success && result.apiKey) {
+        saveConfig({ apiKey: result.apiKey });
+        setConfigured(true);
+        setView('main');
+        getAddresses().then(setAddresses);
+        return;
+      }
+
+      // No auto-login — show setup
       setView('setup');
       setConfigured(false);
-    } else {
-      setConfigured(true);
-      getAddresses().then(setAddresses);
     }
+    init();
   }, []);
 
   const handleTab = (tab: string) => {
