@@ -61,6 +61,8 @@ export default function Home() {
         saveConfig({ apiKey: result.apiKey });
         setConfigured(true);
         setView('main');
+        // Key is now saved — reload wallet data and addresses
+        refresh();
         getAddresses().then(setAddresses);
         return;
       }
