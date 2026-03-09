@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ChevronLeft, Loader2, CheckCircle2, XCircle, Send, AlertTriangle, Globe, Coins } from 'lucide-react';
-import type { DrawerAction } from '@/components/DepositCard';
+import { useState, useEffect, useCallback } from 'react';
+import { Loader2, CheckCircle2, XCircle, Send, AlertTriangle, Globe, Coins } from 'lucide-react';
+import type { CTAButton } from '@/components/bottom-navbar';
 
 const API_BASE = 'https://opencards-api-production.up.railway.app/api/v1';
 
@@ -22,7 +22,7 @@ export interface Approval {
 interface Props {
   approvalId: string;
   onBack: () => void;
-  onActionButton?: (action: DrawerAction) => void;
+  onCTAButtons?: (buttons: CTAButton[]) => void;
   onComplete?: () => void;
 }
 
@@ -50,7 +50,7 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete }: Props) {
+export function ApprovalDetail({ approvalId, onBack, onCTAButtons, onComplete }: Props) {
   const [approval, setApproval] = useState<Approval | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,39 +79,7 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
     load();
   }, [approvalId]);
 
-  // Report CTA buttons to parent drawer
-  useEffect(() => {
-    if (!onActionButton) return;
-
-    if (result) {
-      onActionButton({
-        label: 'Done',
-        disabled: false,
-        perform: () => { onBack(); onComplete?.(); },
-        onBack: undefined,
-      });
-      return;
-    }
-
-    if (!approval || approval.status !== 'pending' || loading) {
-      onActionButton({
-        label: 'Back',
-        disabled: false,
-        perform: () => onBack(),
-      });
-      return;
-    }
-
-    // For pending approvals, we handle buttons within the component
-    // Just report a back action
-    onActionButton({
-      label: 'Back',
-      disabled: false,
-      perform: () => onBack(),
-    });
-  }, [approval, loading, result, onActionButton, onBack, onComplete]);
-
-  const handleApprove = async () => {
+  const handleApprove = useCallback(async () => {
     if (!approval) return;
     setSubmitting('approve');
     try {
@@ -130,9 +98,9 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
     } finally {
       setSubmitting(null);
     }
-  };
+  }, [approval]);
 
-  const handleReject = async () => {
+  const handleReject = useCallback(async () => {
     if (!approval) return;
     setSubmitting('reject');
     try {
@@ -151,7 +119,36 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
     } finally {
       setSubmitting(null);
     }
-  };
+  }, [approval]);
+
+  // Report CTA buttons to parent navbar
+  useEffect(() => {
+    if (!onCTAButtons) return;
+
+    if (result) {
+      // Done state — single "Done" button
+      onCTAButtons([
+        { label: 'Back', variant: 'secondary', onClick: onBack },
+        { label: 'Done', onClick: () => { onBack(); onComplete?.(); } },
+      ]);
+      return;
+    }
+
+    if (!approval || approval.status !== 'pending' || loading) {
+      // Loading / error / already resolved — just back
+      onCTAButtons([
+        { label: 'Back', variant: 'secondary', onClick: onBack },
+      ]);
+      return;
+    }
+
+    // Pending approval — Back + Reject + Approve
+    onCTAButtons([
+      { label: 'Back', variant: 'secondary', onClick: onBack },
+      { label: 'Reject', onClick: handleReject, disabled: !!submitting, loading: submitting === 'reject' },
+      { label: 'Approve', onClick: handleApprove, disabled: !!submitting, loading: submitting === 'approve' },
+    ]);
+  }, [approval, loading, result, submitting, onCTAButtons, onBack, onComplete, handleApprove, handleReject]);
 
   // Loading state
   if (loading) {
@@ -171,7 +168,6 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
           <XCircle size={28} className="text-red-400" />
         </div>
         <p className="text-sm font-medium text-red-400">{error}</p>
-        <button onClick={onBack} className="mt-4 text-sm text-zinc-500 underline">Go back</button>
       </div>
     );
   }
@@ -217,18 +213,13 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
     );
   }
 
-  // Pending approval — show details + action buttons
+  // Pending approval — show details only (buttons are in navbar)
   return (
     <div className="animate-fadeIn px-1">
       {/* Header */}
-      <div className="mb-6 flex items-center gap-3">
-        <button onClick={onBack} className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 transition-all active:scale-90">
-          <ChevronLeft size={18} className="text-zinc-400" />
-        </button>
-        <div>
-          <h3 className="text-base font-bold">Approval Request</h3>
-          <p className="text-xs text-zinc-500">{timeAgo(approval.created_at)}</p>
-        </div>
+      <div className="mb-6">
+        <h3 className="text-base font-bold">Approval Request</h3>
+        <p className="text-xs text-zinc-500">{timeAgo(approval.created_at)}</p>
       </div>
 
       {/* Warning banner */}
@@ -242,11 +233,11 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
       {/* Description */}
       <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Action</p>
-        <p className="text-sm font-medium text-white">{approval.description}</p>
+        <p className="break-all text-sm font-medium text-white">{approval.description}</p>
       </div>
 
       {/* Details grid */}
-      <div className="mb-4 space-y-2">
+      <div className="space-y-2">
         {approval.amount != null && (
           <div className="flex items-center rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3">
             <Coins size={16} className="mr-3 text-primary" />
@@ -276,30 +267,10 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
 
       {/* Error */}
       {error && (
-        <div className="mb-4 rounded-lg border border-red-500/20 bg-red-500/5 p-2.5 text-center text-xs text-red-400">
+        <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/5 p-2.5 text-center text-xs text-red-400">
           {error}
         </div>
       )}
-
-      {/* Action buttons */}
-      <div className="flex gap-3">
-        <button
-          onClick={handleReject}
-          disabled={!!submitting}
-          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-zinc-700 bg-zinc-800 py-3.5 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98] disabled:opacity-40"
-        >
-          {submitting === 'reject' ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
-          Reject
-        </button>
-        <button
-          onClick={handleApprove}
-          disabled={!!submitting}
-          className="flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-40"
-        >
-          {submitting === 'approve' ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-          Approve
-        </button>
-      </div>
     </div>
   );
 }

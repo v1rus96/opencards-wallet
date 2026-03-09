@@ -45,6 +45,7 @@ export default function Home() {
   const [drawerCTA, setDrawerCTA] = useState<DrawerAction | null>(null);
   const [selectedTx, setSelectedTx] = useState<TxDetailData | null>(null);
   const [pendingApprovalId, setPendingApprovalId] = useState<string | null>(null);
+  const [approvalCTAs, setApprovalCTAs] = useState<import('@/components/bottom-navbar').CTAButton[]>([]);
 
   useEffect(() => {
     async function init() {
@@ -99,6 +100,7 @@ export default function Home() {
   const handleDrawerClose = useCallback(() => {
     setDrawerMode('none');
     setDrawerCTA(null);
+    setApprovalCTAs([]);
     setTimeout(() => { setDepositCard(null); setSelectedChain(null); setSelectedTx(null); setPendingApprovalId(null); }, 400);
   }, []);
 
@@ -387,12 +389,12 @@ export default function Home() {
                 <ApprovalDetail
                   approvalId={pendingApprovalId}
                   onBack={handleDrawerClose}
-                  onActionButton={setDrawerCTA}
+                  onCTAButtons={setApprovalCTAs}
                   onComplete={refresh}
                 />
               ),
             }] : [],
-            ctaButtons: drawerCTA ? [
+            ctaButtons: drawerMode === 'approval' ? approvalCTAs : drawerCTA ? [
               ...(drawerCTA.onBack ? [{
                 label: 'Back',
                 variant: 'secondary' as const,
