@@ -22,7 +22,7 @@ export interface CTAButton {
   onClick: () => void
   loading?: boolean
   disabled?: boolean
-  variant?: "primary" | "secondary"
+  variant?: "primary" | "secondary" | "dark"
 }
 
 /* ---- Action Button (the "+" trigger) ---- */

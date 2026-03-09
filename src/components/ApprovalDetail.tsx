@@ -128,24 +128,22 @@ export function ApprovalDetail({ approvalId, onBack, onCTAButtons, onComplete }:
     if (result) {
       // Done state — single "Done" button
       onCTAButtons([
-        { label: 'Back', variant: 'secondary', onClick: onBack },
         { label: 'Done', onClick: () => { onBack(); onComplete?.(); } },
       ]);
       return;
     }
 
     if (!approval || approval.status !== 'pending' || loading) {
-      // Loading / error / already resolved — just back
+      // Loading / error / already resolved — just done/close
       onCTAButtons([
-        { label: 'Back', variant: 'secondary', onClick: onBack },
+        { label: 'Close', onClick: onBack },
       ]);
       return;
     }
 
-    // Pending approval — Back + Reject + Approve
+    // Pending approval — Reject (dark) + Approve (metallic)
     onCTAButtons([
-      { label: 'Back', variant: 'secondary', onClick: onBack },
-      { label: 'Reject', onClick: handleReject, disabled: !!submitting, loading: submitting === 'reject' },
+      { label: 'Reject', variant: 'dark', onClick: handleReject, disabled: !!submitting, loading: submitting === 'reject' },
       { label: 'Approve', onClick: handleApprove, disabled: !!submitting, loading: submitting === 'approve' },
     ]);
   }, [approval, loading, result, submitting, onCTAButtons, onBack, onComplete, handleApprove, handleReject]);
