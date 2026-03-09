@@ -455,50 +455,18 @@ export function BottomNavbar({
                                                                 pointerEvents: isOpen ? undefined : "none",
                                                             }}
                                                         >
-                                                            {btn.variant === "dark" ? (
-                                                                <button
-                                                                    onClick={btn.disabled ? undefined : btn.onClick}
-                                                                    disabled={btn.disabled}
-                                                                    aria-label={btn.label}
-                                                                    style={{
-                                                                        width: "100%",
-                                                                        height: 48,
-                                                                        borderRadius: 100,
-                                                                        background: "rgba(0,0,0,0.85)",
-                                                                        border: "1px solid rgba(255,255,255,0.15)",
-                                                                        color: "#fff",
-                                                                        fontSize: 14,
-                                                                        fontWeight: 600,
-                                                                        cursor: btn.disabled ? "not-allowed" : "pointer",
-                                                                        opacity: btn.disabled ? 0.4 : 1,
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        justifyContent: "center",
-                                                                        gap: 6,
-                                                                        letterSpacing: "-0.01em",
-                                                                        WebkitTapHighlightColor: "transparent",
-                                                                        transition: "transform 0.1s ease, opacity 0.2s ease",
-                                                                    }}
-                                                                >
-                                                                    {btn.loading ? (
-                                                                        <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#fff" }} />
-                                                                    ) : (
-                                                                        btn.label
-                                                                    )}
-                                                                </button>
-                                                            ) : (
-                                                                <LiquidMetalButton
-                                                                    viewMode="text"
-                                                                    label={btn.label}
-                                                                    icon={btn.icon}
-                                                                    onClick={btn.onClick}
-                                                                    disabled={btn.disabled}
-                                                                    loading={btn.loading}
-                                                                    width="100%"
-                                                                    height={48}
-                                                                    aria-label={btn.label}
-                                                                />
-                                                            )}
+                                                            <LiquidMetalButton
+                                                                viewMode="text"
+                                                                label={btn.label}
+                                                                icon={btn.icon}
+                                                                onClick={btn.onClick}
+                                                                disabled={btn.disabled}
+                                                                loading={btn.loading}
+                                                                dark={btn.variant === "dark"}
+                                                                width="100%"
+                                                                height={48}
+                                                                aria-label={btn.label}
+                                                            />
                                                         </motion.div>
                                                     )
                                                 })}

@@ -11,6 +11,7 @@ interface LiquidMetalButtonProps {
   disabled?: boolean
   loading?: boolean
   viewMode?: "text" | "icon"
+  dark?: boolean
   width?: number | string
   height?: number
   className?: string
@@ -25,6 +26,7 @@ export function LiquidMetalButton({
   disabled,
   loading,
   viewMode = "text",
+  dark = false,
   width: customWidth,
   height: customHeight,
   className,
@@ -230,7 +232,7 @@ export function LiquidMetalButton({
     >
       {/* ShaderMount's canvas is prepended here automatically with z-index: -1 */}
 
-      {/* White inner layer */}
+      {/* Inner layer */}
       <div
         style={{
           position: "absolute",
@@ -242,7 +244,9 @@ export function LiquidMetalButton({
           borderRadius: 100,
           background: disabled
             ? "linear-gradient(180deg, #e0e0e0 0%, #ccc 100%)"
-            : "linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%)",
+            : dark
+              ? "linear-gradient(180deg, #1a1a1a 0%, #0a0a0a 100%)"
+              : "linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%)",
           boxShadow: isPressed && !disabled
             ? "inset 0px 2px 4px rgba(0, 0, 0, 0.4), inset 0px 1px 2px rgba(0, 0, 0, 0.3)"
             : "none",
@@ -273,7 +277,7 @@ export function LiquidMetalButton({
             height={16}
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#000"
+            stroke={dark ? "#fff" : "#000"}
             strokeWidth={2.5}
             strokeLinecap="round"
           >
@@ -285,8 +289,10 @@ export function LiquidMetalButton({
               <Icon
                 size={viewMode === "icon" ? 20 : 16}
                 style={{
-                  color: "#000000",
-                  filter: "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.5))",
+                  color: dark ? "#ffffff" : "#000000",
+                  filter: dark
+                    ? "drop-shadow(0px 1px 2px rgba(255, 255, 255, 0.3))"
+                    : "drop-shadow(0px 1px 2px rgba(0, 0, 0, 0.5))",
                 }}
                 strokeWidth={2.5}
               />
@@ -295,9 +301,11 @@ export function LiquidMetalButton({
               <span
                 style={{
                   fontSize: 14,
-                  color: "#000000",
+                  color: dark ? "#ffffff" : "#000000",
                   fontWeight: 600,
-                  textShadow: "0px 1px 2px rgba(0, 0, 0, 0.5)",
+                  textShadow: dark
+                    ? "0px 1px 2px rgba(255, 255, 255, 0.3)"
+                    : "0px 1px 2px rgba(0, 0, 0, 0.5)",
                   whiteSpace: "nowrap",
                   letterSpacing: "-0.01em",
                 }}
