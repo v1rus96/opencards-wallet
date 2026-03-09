@@ -7,7 +7,8 @@ import { NetworkSolana, NetworkEthereum } from '@web3icons/react';
 import { useSafeArea, useTelegram } from '@/hooks/useTelegram';
 import { useWalletData } from '@/hooks/useWalletData';
 import { getConfig, saveConfig, clearConfig } from '@/lib/store';
-import { handleTelegramAutoLogin } from '@/lib/telegram-auth';
+import { handleTelegramAutoLogin, getTelegramApprovalId } from '@/lib/telegram-auth';
+import { ApprovalDetail } from '@/components/ApprovalDetail';
 import { clearAddressCache, freezeCard, unfreezeCard, getAddresses } from '@/lib/api';
 import { ChainGrid } from '@/components/ChainGrid';
 const CardList = dynamic(() => import('@/components/CardList').then(m => m.CardList), { ssr: false });
@@ -40,9 +41,10 @@ export default function Home() {
   const [configured, setConfigured] = useState<boolean | null>(null);
   const [selectedChain, setSelectedChain] = useState<import('@/types').ChainBalance | null>(null);
   const [addresses, setAddresses] = useState({ sol: '', evm: '' });
-  const [drawerMode, setDrawerMode] = useState<'none' | 'order' | 'deposit' | 'coin' | 'txDetail'>('none');
+  const [drawerMode, setDrawerMode] = useState<'none' | 'order' | 'deposit' | 'coin' | 'txDetail' | 'approval'>('none');
   const [drawerCTA, setDrawerCTA] = useState<DrawerAction | null>(null);
   const [selectedTx, setSelectedTx] = useState<TxDetailData | null>(null);
+  const [pendingApprovalId, setPendingApprovalId] = useState<string | null>(null);
 
   useEffect(() => {
     async function init() {
@@ -52,6 +54,13 @@ export default function Home() {
       if (config.configured && config.apiKey) {
         setConfigured(true);
         getAddresses().then(setAddresses);
+
+        // Check for approval deep link
+        const approvalId = getTelegramApprovalId();
+        if (approvalId) {
+          setPendingApprovalId(approvalId);
+          setDrawerMode('approval');
+        }
         return;
       }
 
@@ -90,7 +99,7 @@ export default function Home() {
   const handleDrawerClose = useCallback(() => {
     setDrawerMode('none');
     setDrawerCTA(null);
-    setTimeout(() => { setDepositCard(null); setSelectedChain(null); setSelectedTx(null); }, 400);
+    setTimeout(() => { setDepositCard(null); setSelectedChain(null); setSelectedTx(null); setPendingApprovalId(null); }, 400);
   }, []);
 
   const handleTxSelect = useCallback((tx: TxDetailData) => {
@@ -370,6 +379,16 @@ export default function Home() {
                   tx={selectedTx}
                   onBack={handleDrawerClose}
                   onActionButton={setDrawerCTA}
+                />
+              ),
+            }] : drawerMode === 'approval' && pendingApprovalId ? [{
+              title: '',
+              content: (
+                <ApprovalDetail
+                  approvalId={pendingApprovalId}
+                  onBack={handleDrawerClose}
+                  onActionButton={setDrawerCTA}
+                  onComplete={refresh}
                 />
               ),
             }] : [],

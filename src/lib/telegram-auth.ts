@@ -17,6 +17,14 @@ export function getTelegramStartParam(): string | undefined {
   return tg?.initDataUnsafe?.start_param;
 }
 
+export function getTelegramApprovalId(): string | undefined {
+  const param = getTelegramStartParam();
+  if (param?.startsWith('approve_')) {
+    return param.replace('approve_', '');
+  }
+  return undefined;
+}
+
 interface AutoLoginResult {
   success: boolean;
   apiKey?: string;
