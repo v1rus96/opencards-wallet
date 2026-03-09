@@ -222,7 +222,7 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
     <div className="animate-fadeIn px-1">
       {/* Header */}
       <div className="mb-6 flex items-center gap-3">
-        <button onClick={onBack} className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 transition-all active:scale-90">
+        <button onClick={onBack} className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-800 transition-all active:scale-90">
           <ChevronLeft size={18} className="text-zinc-400" />
         </button>
         <div>
@@ -286,7 +286,7 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
         <button
           onClick={handleReject}
           disabled={!!submitting}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 py-3.5 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98] disabled:opacity-40"
+          className="flex flex-1 items-center justify-center gap-2 rounded-full border border-zinc-700 bg-zinc-800 py-3.5 text-sm font-bold text-zinc-300 transition-all active:scale-[0.98] disabled:opacity-40"
         >
           {submitting === 'reject' ? <Loader2 size={16} className="animate-spin" /> : <XCircle size={16} />}
           Reject
@@ -294,7 +294,7 @@ export function ApprovalDetail({ approvalId, onBack, onActionButton, onComplete 
         <button
           onClick={handleApprove}
           disabled={!!submitting}
-          className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-40"
+          className="flex flex-1 items-center justify-center gap-2 rounded-full bg-emerald-600 py-3.5 text-sm font-bold text-white transition-all active:scale-[0.98] disabled:opacity-40"
         >
           {submitting === 'approve' ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
           Approve
