@@ -59,6 +59,23 @@ export async function handleTelegramAutoLogin(): Promise<AutoLoginResult> {
         }).catch(() => {});
       }
 
+      // Auto-generate wallets if the agent doesn't have any yet
+      const walletsRes = await fetch(`${API_BASE}/wallets/me`, { headers });
+      const walletsData = await walletsRes.json();
+
+      if (!walletsData.wallets?.length) {
+        await fetch(`${API_BASE}/wallets/generate`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ network: 'solana-devnet' }),
+        });
+        await fetch(`${API_BASE}/wallets/generate`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ network: 'base-sepolia' }),
+        });
+      }
+
       return { success: true, apiKey, agent: data.agent, chatId };
     }
   } catch (err) {
